@@ -1,0 +1,23 @@
+{
+  "name": "AI 英语智能语音伴学伙伴",
+  "short_name": "AI Voice Tutor",
+  "description": "专为小学生与初中生打造的 ChatGPT 风格全双工自主语音通话对练系统",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#0b0f19",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
