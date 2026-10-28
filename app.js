@@ -300,14 +300,14 @@ function resetConversation() {
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
   const cw = App.activeCourseware;
-  const greeting = cw?.initialGreeting || "Hello! I am Bingo. What is your name? 你好呀！我是 Bingo，你叫什么名字呀？";
+  const greeting = cw?.initialGreeting || "Hello! I am Bingo. What is your name?";
 
-  // 添加系统设定
+  // 添加自适应大模型提示词
   if (cw?.persona?.systemPrompt) {
     let prompt = cw.persona.systemPrompt;
-    if (App.config.teachMode === 'bilingual') {
-      prompt += "\nIMPORTANT: Always reply with English sentence first, followed by clear friendly Chinese explanation so the child can understand immediately. Guide the child on what to say next.";
-    }
+    prompt += `\n\n### CRITICAL TEACHING POLICY:
+1. When student speaks English: Respond in 100% natural, simple English (1-2 short sentences). Do NOT append Chinese translations. Keep the pure English environment!
+2. When student speaks Chinese, asks for meaning ('什么意思'/'听不懂'), or expresses hesitation: Immediately use friendly, warm Chinese to explain and comfort the child, then teach the target English sentence, and invite the child to repeat (e.g. '原来你想说...，用英文可以说：“...”，跟我来念一遍好吗？').`;
     App.conversationHistory.push({ role: 'system', content: prompt });
   }
 
@@ -517,26 +517,52 @@ async function commitUserSpeech(spokenText) {
   }
 }
 
-// 内置免 Key 课标体验对练逻辑（解决死循环重复问题）
+// 内置免 Key 课标自适应双轨对练逻辑（孩子说英文纯英文接，孩子说中文用中文引导英文辅助）
 function generateDemoReply(input) {
   const cw = App.activeCourseware;
   const lower = input.toLowerCase();
+  const hasChinese = /[\u4e00-\u9fa5]/.test(input);
 
-  if (cw && cw.demoSteps && cw.demoSteps.length > 0) {
-    // 查找匹配的关卡步骤
-    for (const step of cw.demoSteps) {
-      if (step.trigger.some(k => lower.includes(k.toLowerCase()))) {
-        return step.reply;
-      }
+  // 【分支一】：孩子说中文、或表示听不懂 / 求助
+  if (hasChinese) {
+    if (/叫|我是|名字|姓/.test(input)) {
+      return "原来是这样呀！很高兴认识你！如果用英文介绍自己，可以说：“My name is...” 后面加上你的名字。试着跟我读一次好吗？";
     }
-    // 顺次推进
-    const currentStep = cw.demoSteps[App.demoStepIndex % cw.demoSteps.length];
-    App.demoStepIndex++;
-    return `Super! 说得真好！${currentStep.reply}`;
+    if (/不懂|意思|你说什么|听不清|慢点|不会/.test(input)) {
+      return "别担心哦！我刚才在问你的名字。你可以试着告诉我：“Hello, my name is...” 后面加上你的名字，大声试一次！";
+    }
+    if (/手|胳膊|眼睛|耳朵|嘴巴/.test(input)) {
+      return "身体部位用英文说很有趣哦！手是 hand，耳朵是 ear。摸摸手可以说：“Touch your hand.” 跟我读一遍：hand！";
+    }
+    if (/好|可以|行|对|会/.test(input)) {
+      return "真棒！赞同对方的时候，用英文可以说：“OK!” 或者 “Great!”。跟我大声说一遍：OK！";
+    }
+    if (/爸爸|妈妈|哥哥|弟弟|姐姐|妹妹|家人/.test(input)) {
+      return "好温馨的家庭呀！用英文介绍爸爸可以说是：“This is my father.” 妈妈是 mother。试着跟我念：father！";
+    }
+    // 通用中文引导
+    return "听懂你的意思啦！那试着用英文跟我打个招呼吧，跟着我大声念：“Hello Bingo!”";
   }
 
-  // 通用友好带读
-  return `Great try! 很好！You said: "${input}". 试着跟我说：I am happy today! 我今天很开心！`;
+  // 【分支二】：孩子说纯英文（保持 100% 纯英文沉浸交流，绝不插入中文！）
+  if (/name|i'm|i am|hello|hi|bingo/i.test(lower)) {
+    return "Nice to meet you! Look, I can wave my hand. Can you wave your hand?";
+  }
+  if (/yes|can|hand|wave|look|arm/i.test(lower)) {
+    return "Super! We are good friends now. Let's share our toys, OK?";
+  }
+  if (/share|ok|good|friend|toy|great/i.test(lower)) {
+    return "Bingo! You did an amazing job today! You got a star! ⭐";
+  }
+  if (/father|mother|brother|sister|family/i.test(lower)) {
+    return "Your family looks so happy and sweet! Do you love your family?";
+  }
+  if (/love|nice|happy/i.test(lower)) {
+    return "Wonderful! Loving family and friends is the best thing. You are awesome! ⭐";
+  }
+
+  // 纯英文通用接话
+  return "Good job! You speak English so nicely! Let's keep talking!";
 }
 
 // 字幕卡片
