@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 英语智能语音通话伴学伙伴</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AI 英语课标同步智能语音伴学伙伴</title>
   <!-- iPad / iOS 原生全屏与 PWA 支持 -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,77 +19,120 @@
     <header class="top-bar">
       <div class="brand">
         <span class="pulse-dot"></span>
-        <span class="brand-title">AI Voice Tutor</span>
+        <span class="brand-title">AI Voice Tutor · 课标同步视听伴学</span>
       </div>
 
       <div class="top-controls">
-        <!-- 课件随时切换下拉菜单 -->
         <div class="dropdown-wrapper">
-          <label for="coursewareSelect">📚 课件/场景：</label>
+          <label for="coursewareSelect">📚 当前课件：</label>
           <select id="coursewareSelect" title="切换课件"></select>
         </div>
-
-        <!-- 设置按钮（切换模型与语音参数） -->
         <button id="openSettingsBtn" class="icon-btn" title="模型与语音设置">⚙️ 设置</button>
       </div>
     </header>
 
-    <!-- 核心主体：ChatGPT 风格灵动声波球 -->
-    <main class="voice-main">
-      <div class="voice-orb-container" id="orbContainer">
-        <!-- 多层辉光声波球 -->
-        <div class="orb-halo"></div>
-        <div class="orb-core" id="orbCore">
-          <div class="orb-wave wave1"></div>
-          <div class="orb-wave wave2"></div>
-          <div class="orb-wave wave3"></div>
-          <span class="orb-icon" id="orbIcon">🎙️</span>
+    <!-- 主展示区：左侧课件视听面板 + 右侧 AI 语音通话中枢 -->
+    <main class="split-main">
+      
+      <!-- 📖 左侧：教材图文课件中心 (Courseware Board) -->
+      <section class="courseware-board" id="coursewareBoard">
+        <!-- 单元情景横幅 -->
+        <div class="cw-banner">
+          <div class="cw-banner-icon" id="cwBannerIcon">🎒</div>
+          <div class="cw-banner-text">
+            <h2 id="cwTitle">小学三年级上册 · Unit 1: Making friends</h2>
+            <p id="cwThemeDesc">【情景】新学期开学第一天，在校门口互相打招呼、介绍自己并结识新朋友！</p>
+          </div>
         </div>
-      </div>
 
-      <!-- 实时状态提示语 -->
-      <div class="status-indicator" id="statusIndicator">点击下方按钮开始语音通话</div>
-      <div class="sub-status" id="subStatus">双手免提 · 像真人打微信电话一样聊英语</div>
+        <div class="cw-scroll-area">
+          <!-- 1. 课本核心情景对话 (Let's talk) -->
+          <div class="cw-section">
+            <div class="cw-section-title">
+              <span>🎭 课本核心情境对话 (Let's talk)</span>
+              <small>轻点对话泡泡即可跟读示范 🔊</small>
+            </div>
+            <div class="dialogue-list" id="dialogueList">
+              <!-- 动态填充课本对话 -->
+            </div>
+          </div>
 
-      <!-- 实时字幕对讲卡片 -->
-      <div class="transcript-card" id="transcriptCard">
-        <div class="transcript-box" id="transcriptBox">
-          <div class="transcript-line system">🌟 戴上耳机或开大音量，点击绿色通话按钮开始吧！</div>
+          <!-- 2. 核心图文生词池 (Word Bank) -->
+          <div class="cw-section">
+            <div class="cw-section-title">
+              <span>🔤 单元重点图文生词 (Word Bank)</span>
+              <small>点击卡片听标准音标发音 🔊</small>
+            </div>
+            <div class="vocab-cards-grid" id="vocabCardsGrid">
+              <!-- 动态填充生词卡 -->
+            </div>
+          </div>
+
+          <!-- 3. 开口表达锦囊 (Quick Prompts) -->
+          <div class="cw-section">
+            <div class="cw-section-title">
+              <span>💡 开口表达小锦囊（试着对 AI 说）：</span>
+            </div>
+            <div class="prompts-grid" id="promptsGrid">
+              <!-- 动态填充提示词 -->
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <!-- 🎙️ 右侧：AI 智能语音通话交互中枢 (Voice Call Hub) -->
+      <section class="voice-call-hub">
+        <!-- 灵动呼吸声波球 -->
+        <div class="voice-orb-container" id="orbContainer" title="点击可打断 AI 或发起通话">
+          <div class="orb-halo"></div>
+          <div class="orb-core" id="orbCore">
+            <div class="orb-wave wave1"></div>
+            <div class="orb-wave wave2"></div>
+            <div class="orb-wave wave3"></div>
+            <span class="orb-icon" id="orbIcon">🎙️</span>
+          </div>
+        </div>
+
+        <!-- 实时通话状态 -->
+        <div class="status-indicator" id="statusIndicator">点击下方按钮开始语音通话</div>
+        <div class="sub-status" id="subStatus">双手免提 · 看着课件像打语音电话一样自然对练</div>
+
+        <!-- 实时对讲字幕流 -->
+        <div class="transcript-card" id="transcriptCard">
+          <div class="transcript-box" id="transcriptBox">
+            <div class="transcript-line system">🌟 戴上耳机，看着左侧课件，点击绿色通话按钮开始吧！</div>
+          </div>
+        </div>
+
+        <!-- 通话控制按钮组 -->
+        <div class="call-controls">
+          <button id="callToggleBtn" class="call-btn start-call" title="开始/挂断通话">
+            <span class="btn-icon">📞</span>
+            <span class="btn-text">开始通话</span>
+          </button>
+
+          <button id="muteBtn" class="control-btn" title="麦克风静音" disabled>
+            <span class="btn-icon">🎤</span>
+            <span class="btn-text">正常听音</span>
+          </button>
+
+          <button id="textInputToggleBtn" class="control-btn" title="文字辅助">
+            <span class="btn-icon">⌨️</span>
+            <span class="btn-text">键盘文字</span>
+          </button>
+        </div>
+
+        <!-- 文字辅助输入抽屉 -->
+        <div class="text-drawer" id="textDrawer">
+          <input type="text" id="manualTextInput" placeholder="遇到生词或不想说话时，可以打字发送...">
+          <button id="manualSendBtn">发送</button>
+        </div>
+      </section>
+
     </main>
-
-    <!-- 底部通话控制器 -->
-    <footer class="bottom-action-bar">
-      <div class="action-buttons-group">
-        <!-- 挂断/开始通话主按键 -->
-        <button id="callToggleBtn" class="call-btn start-call" title="开始/挂断通话">
-          <span class="btn-icon">📞</span>
-          <span class="btn-text">开始通话</span>
-        </button>
-
-        <!-- 麦克风静音控制 -->
-        <button id="muteBtn" class="control-btn" title="麦克风静音" disabled>
-          <span class="btn-icon">🎤</span>
-          <span class="btn-text">正常听音</span>
-        </button>
-
-        <!-- 打字辅助输入抽屉开关 -->
-        <button id="textInputToggleBtn" class="control-btn" title="不想说话时文字辅助">
-          <span class="btn-icon">⌨️</span>
-          <span class="btn-text">键盘文字</span>
-        </button>
-      </div>
-
-      <!-- 隐藏式的文字辅助输入区 -->
-      <div class="text-drawer" id="textDrawer">
-        <input type="text" id="manualTextInput" placeholder="遇到生词或不想说话时，可以这里打字发送...">
-        <button id="manualSendBtn">发送</button>
-      </div>
-    </footer>
   </div>
 
-  <!-- ⚙️ 模块化设置模态窗口（随时换模型、换语音、换参数） -->
+  <!-- ⚙️ 模块化设置模态窗口 -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-card">
       <div class="modal-header">
@@ -98,7 +141,7 @@
       </div>
 
       <div class="modal-body">
-        <!-- 1. 模型提供商（随心切换） -->
+        <!-- 1. 模型大脑 -->
         <div class="config-section">
           <h4>🤖 语言大模型大脑 (LLM Provider)</h4>
           <div class="form-group">
@@ -108,8 +151,8 @@
               <option value="qwen">阿里通义千问 (DashScope)</option>
               <option value="siliconflow">SiliconFlow (硅基流动)</option>
               <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-              <option value="ollama">本地 Ollama (完全离线本地模型)</option>
-              <option value="custom">自定义 OpenAI 兼容接口</option>
+              <option value="ollama">本地 Ollama (完全离线模型)</option>
+              <option value="custom">自定义 OpenAI 兼容端点</option>
             </select>
           </div>
 
@@ -119,9 +162,9 @@
           </div>
 
           <div class="form-group">
-            <label>API Key (密钥，仅保存在您本地浏览器)：</label>
+            <label>API Key (密钥，仅保存在您本地设备)：</label>
             <input type="password" id="cfgApiKey" placeholder="sk-xxxxxxxxxxxxxxxx">
-            <small class="tip">没有 Key？可免费在 DeepSeek 或 阿里云百炼 领取使用</small>
+            <small class="tip">暂无 Key？不填也会自动以内置高保真课标模式畅聊体验！</small>
           </div>
 
           <div class="form-group">
@@ -132,9 +175,9 @@
 
         <!-- 2. 语音合成与声音控制 -->
         <div class="config-section">
-          <h4>🗣️ 语音与听感控制 (Voice & Audio)</h4>
+          <h4>🗣️ 语音与声音控制 (Voice & Audio)</h4>
           <div class="form-group">
-            <label>英语朗读音色：</label>
+            <label>伴学音色选择：</label>
             <select id="cfgVoiceSelect"></select>
             <button id="testVoiceBtn" class="small-btn">试听发音 🔊</button>
           </div>
@@ -145,33 +188,27 @@
           </div>
 
           <div class="form-group">
-            <label>静音断句灵敏度 (孩子停顿多久后 AI 接话)：<span id="vadValLabel">1.2 秒</span></label>
+            <label>静音断句灵敏度 (孩子停顿多久后接话)：<span id="vadValLabel">1.2 秒</span></label>
             <input type="range" id="cfgVadTimeout" min="0.8" max="2.5" step="0.1" value="1.2">
           </div>
         </div>
 
-        <!-- 3. 课件与教学策略 -->
+        <!-- 3. 教学策略与语言自适应 -->
         <div class="config-section">
-          <h4>🎓 教学模式与发音体验</h4>
+          <h4>🎓 教学模式与语言自适应</h4>
           <div class="form-group">
             <label>伴学语言模式：</label>
             <select id="cfgTeachModeSelect">
-              <option value="bilingual">中英双语亲切启发模式（推荐小学生，讲英文带中文释义与提示）</option>
-              <option value="english">纯英文沉浸交流模式（进阶挑战）</option>
+              <option value="adaptive">自适应双轨模式（推荐：孩子说英文用纯英文，孩子说中文用中文引导）</option>
+              <option value="english">纯英文沉浸模式（进阶挑战）</option>
             </select>
           </div>
           <div class="form-group">
             <label>麦克风识别语言：</label>
             <select id="cfgRecogLangSelect">
-              <option value="zh-CN">中英双语自适应识别（孩子说中文或英文均可听懂）</option>
+              <option value="zh-CN">中英双语混合识别（孩子说中文或英文均可听懂）</option>
               <option value="en-US">纯英语识别（严格英文发音模式）</option>
             </select>
-          </div>
-          <div class="form-group checkbox-group">
-            <label>
-              <input type="checkbox" id="cfgRecastEnabled" checked>
-              <span>开启“隐性无痛重铸”（不直接批评，用正确句子接话培养语感）</span>
-            </label>
           </div>
           <div class="form-group checkbox-group">
             <label>

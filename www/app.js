@@ -130,6 +130,7 @@ async function loadCoursewares() {
         select.appendChild(opt);
       });
       App.activeCourseware = json.data[0].data;
+      renderCoursewareBoard(App.activeCourseware);
     } else {
       fallbackCourseware(select);
     }
@@ -141,12 +142,101 @@ async function loadCoursewares() {
     const found = App.coursewares.find(c => c.id === e.target.value);
     if (found) {
       App.activeCourseware = found.data;
+      renderCoursewareBoard(App.activeCourseware);
       appendTranscript('system', `📚 已切换课件：${found.title}`);
       if (App.isCalling) {
         resetConversation();
       }
     }
   });
+}
+
+function renderCoursewareBoard(cw) {
+  if (!cw) return;
+  // 1. 横幅
+  const iconEl = document.getElementById('cwBannerIcon');
+  if (iconEl) iconEl.textContent = cw.bannerEmoji || '📚';
+  
+  const titleEl = document.getElementById('cwTitle');
+  if (titleEl) titleEl.textContent = cw.title || '英语同步课件';
+  
+  const descEl = document.getElementById('cwThemeDesc');
+  if (descEl) descEl.textContent = cw.themeDescription || '【情境】跟着课本核心句型，开始你的英语对练之旅！';
+
+  // 2. 课本核心情景对话 (Let's talk)
+  const dList = document.getElementById('dialogueList');
+  if (dList) {
+    dList.innerHTML = '';
+    const dialogues = cw.targetDialogue || [
+      { role: cw.persona?.name || "AI", text: cw.initialGreeting || "Hello!", zh: "你好！" }
+    ];
+    dialogues.forEach(item => {
+      const row = document.createElement('div');
+      row.className = `dialogue-item ${item.role === 'You' ? 'user' : 'bot'}`;
+      row.innerHTML = `
+        <span class="dialogue-role">${item.role}</span>
+        <div class="dialogue-text">
+          <div class="dialogue-en">${item.text}</div>
+          <div class="dialogue-zh">${item.zh || ''}</div>
+        </div>
+        <span class="play-icon-btn" title="点击听示范发音">🔊</span>
+      `;
+      row.addEventListener('click', () => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(item.text);
+          u.lang = 'en-US';
+          u.rate = parseFloat(App.config.speechRate) || 0.85;
+          window.speechSynthesis.speak(u);
+        }
+      });
+      dList.appendChild(row);
+    });
+  }
+
+  // 3. 单元重点图文生词 (Word Bank)
+  const vGrid = document.getElementById('vocabCardsGrid');
+  if (vGrid) {
+    vGrid.innerHTML = '';
+    const vocab = cw.targetVocab || [];
+    vocab.forEach(v => {
+      const card = document.createElement('div');
+      card.className = 'vocab-card';
+      card.innerHTML = `
+        <div class="vocab-emoji">${v.emoji || '📝'}</div>
+        <div class="vocab-word">${v.word}</div>
+        <div class="vocab-phonetic">${v.phonetic || ''}</div>
+        <div class="vocab-zh">${v.zh}</div>
+      `;
+      card.addEventListener('click', () => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(v.word + (v.sent ? `. ${v.sent}` : ''));
+          u.lang = 'en-US';
+          u.rate = parseFloat(App.config.speechRate) || 0.85;
+          window.speechSynthesis.speak(u);
+        }
+      });
+      vGrid.appendChild(card);
+    });
+  }
+
+  // 4. 开口小锦囊 (Quick Prompts)
+  const pGrid = document.getElementById('promptsGrid');
+  if (pGrid) {
+    pGrid.innerHTML = '';
+    const prompts = cw.quickPrompts || [];
+    prompts.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'prompt-pill';
+      btn.innerHTML = `<span>${p.text}</span> <small>${p.zh || ''}</small>`;
+      btn.addEventListener('click', () => {
+        if (!App.isCalling) startCall();
+        commitUserSpeech(p.text);
+      });
+      pGrid.appendChild(btn);
+    });
+  }
 }
 
 function fallbackCourseware(select) {

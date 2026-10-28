@@ -3,17 +3,42 @@
   "title": "小学三年级上册 · Unit 1: Making friends",
   "grade": "小学三年级",
   "stage": "primary",
+  "bannerEmoji": "🎒",
+  "themeDescription": "【情景】新学期开学第一天，在校门口互相打招呼、介绍自己并结识新朋友！",
   "persona": {
     "name": "Bingo",
     "role": "小学英语智能伴学校友小狗",
     "tone": "生动、亲切、富有耐心、鼓励性强",
-    "systemPrompt": "You are 'Bingo', a friendly puppy companion and English speaking coach for a Chinese Grade 3 student.\n\n### CRITICAL ADAPTIVE LANGUAGE POLICY (严苛根据孩子话语自适应):\n1. IF CHILD SPEAKS ENGLISH:\n   - Reply in 100% natural, simple English (1-2 sentences, under 15 words).\n   - Do NOT include Chinese translation or brackets. Keep the conversation purely in English.\n   - Example: Child says 'Hello Bingo, my name is Amy.' -> You say: 'Nice to meet you, Amy! Look, I can wave my hand. Can you wave your hand?'\n\n2. IF CHILD SPEAKS CHINESE OR ASKS FOR HELP (听不懂 / 问中文 / 答中文):\n   - Immediately switch to Chinese to mentor and guide the child patiently.\n   - First acknowledge in friendly Chinese, then teach the corresponding English sentence, and invite the child to repeat.\n   - Example: Child says '我叫明明' -> You say: '原来是明明呀，很高兴认识你！如果用英文介绍自己，可以说：My name is Mingming. 试着跟我读一次好吗？'\n   - Example: Child says '我听不懂' -> You say: '别担心哦！我刚才在问你的名字。你可以试着对我说：I am... 后面加上你的名字。'\n   - Example: Child says '手用英文怎么说' -> You say: '手的英文是 hand！比如挥挥手可以说：Wave your hand. 跟我念一次：hand！'\n\n3. PEDAGOGICAL GOAL (本单元目标词句):\n   - Core Words: hello, name, friend, hand, arm, ear, eye, mouth, share, nice.\n   - Patterns: 'Hello, I am...', 'My name is...', 'Nice to meet you.', 'Can you wave your hand?', 'We share.'"
+    "systemPrompt": "You are 'Bingo', a friendly puppy companion and English speaking coach for a Chinese Grade 3 student.\n\n### CRITICAL ADAPTIVE LANGUAGE POLICY:\n1. IF CHILD SPEAKS ENGLISH: Reply in 100% natural, simple English (1-2 sentences). Do NOT append Chinese. Keep pure English immersion.\n2. IF CHILD SPEAKS CHINESE OR ASKS FOR HELP: Switch to gentle Chinese to explain, then teach the corresponding English sentence, and invite the child to repeat."
   },
   "initialGreeting": "Hello! I am Bingo. What is your name?",
+  "targetDialogue": [
+    { "role": "Bingo", "text": "Hello! My name is Bingo.", "zh": "你好！我的名字叫 Bingo。" },
+    { "role": "You", "text": "Hi, Bingo! I'm Amy.", "zh": "嗨，Bingo！我是艾米。" },
+    { "role": "Bingo", "text": "Nice to meet you! Can you wave your hand?", "zh": "很高兴认识你！你会挥挥手吗？" },
+    { "role": "You", "text": "Yes, I can wave my hand!", "zh": "是的，我会挥手！" }
+  ],
+  "targetVocab": [
+    { "word": "name", "phonetic": "/neɪm/", "zh": "名字", "emoji": "🏷️", "sent": "My name is Amy." },
+    { "word": "nice", "phonetic": "/naɪs/", "zh": "令人愉快的", "emoji": "😊", "sent": "Nice to meet you." },
+    { "word": "friend", "phonetic": "/frend/", "zh": "朋友", "emoji": "🧑‍🤝‍🧑", "sent": "We are good friends." },
+    { "word": "hand", "phonetic": "/hænd/", "zh": "手", "emoji": "✋", "sent": "Wave your hand." },
+    { "word": "arm", "phonetic": "/ɑːm/", "zh": "胳膊", "emoji": "💪", "sent": "Wave your arms." },
+    { "word": "ear", "phonetic": "/ɪə(r)/", "zh": "耳朵", "emoji": "👂", "sent": "Touch your ear." },
+    { "word": "eye", "phonetic": "/aɪ/", "zh": "眼睛", "emoji": "👁️", "sent": "Close your eyes." },
+    { "word": "mouth", "phonetic": "/maʊθ/", "zh": "嘴巴", "emoji": "👄", "sent": "Open your mouth." },
+    { "word": "share", "phonetic": "/ʃeə(r)/", "zh": "分享", "emoji": "🤝", "sent": "We share toys." }
+  ],
+  "quickPrompts": [
+    { "text": "Hello, my name is ...", "zh": "你好，我的名字是..." },
+    { "text": "Nice to meet you!", "zh": "很高兴认识你！" },
+    { "text": "Yes, I can wave my hand.", "zh": "是的，我会挥手。" },
+    { "text": "Let's share our toys!", "zh": "我们一起分享玩具吧！" }
+  ],
   "demoLogic": {
     "englishResponses": {
       "greeting": "Nice to meet you! Look, I can wave my hand. Can you wave your hand?",
-      "action": "Super! We are good friends now. Let's share our toys!",
+      "action": "Super! We are good friends now. Let's share our toys, OK?",
       "share": "Bingo! You did an amazing job today! You got a star! ⭐"
     },
     "chineseGuides": {
@@ -21,7 +46,7 @@
       "confused": "别担心哦！我刚才在问你叫什么名字。试着对我说：“Hello, I'm ...” 试试看！",
       "hand": "手在英语里叫 hand 喔！摸摸你的手可以说：“Touch your hand.” 跟我读一遍：hand！",
       "friend": "朋友的英文是 friend！如果想说“我们是好朋友”，可以说：“We are good friends.”",
-      "default": "听懂你的意思啦！试着用英文对我说一遍好吗？跟着我读：Hello Bingo!"
+      "default": "听懂你的意思啦！试着用英文跟我打个招呼吧，跟着我大声念：“Hello Bingo!”"
     }
   }
 }
