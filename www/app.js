@@ -2,10 +2,10 @@
  * AI-Voice-Agent 前端全双工语音通信与智能中枢
  * 1. 模块化模型中继 (OpenAI / DeepSeek / 通义千问 / Ollama)
  * 2. 模块化课件动态热插拔 (/api/courseware)
- * 3. ChatGPT 高级语音模式 VAD 自动静音感应与自主对练循环
+ * 3. 中英双语亲切教学 + 内置体验模式（免Key也能玩，填Key自由聊）
+ * 4. 防回声自录（Echo Guard）与智能 VAD 自动断句
  */
 
-// 预设模型服务商配置
 const PRESETS = {
   deepseek: {
     baseUrl: 'https://api.deepseek.com/v1',
@@ -39,7 +39,6 @@ const PRESETS = {
   }
 };
 
-// 全局应用状态
 const App = {
   isCalling: false,
   isMuted: false,
@@ -49,7 +48,8 @@ const App = {
   coursewares: [],
   conversationHistory: [],
   speechTimer: null,
-  currentUtterance: null,
+  echoGuardTimer: null,
+  demoStepIndex: 0,
   
   // 本地配置
   config: {
@@ -60,12 +60,12 @@ const App = {
     voiceURI: '',
     speechRate: 0.85,
     vadTimeout: 1.2,
-    recastEnabled: true,
+    recognitionLang: 'zh-CN', // zh-CN: 中英双语都能识别；en-US: 纯英文
+    teachMode: 'bilingual', // bilingual: 中英双语带读；english: 纯英文沉浸
     showZhSubtitle: true
   }
 };
 
-// 页面加载入口
 document.addEventListener('DOMContentLoaded', async () => {
   loadConfig();
   initVoices();
@@ -74,7 +74,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   setAppState('IDLE');
 });
 
-// 1. 本地存储配置加载与保存
 function loadConfig() {
   try {
     const saved = localStorage.getItem('ai_voice_agent_cfg');
@@ -104,11 +103,17 @@ function syncSettingsModal() {
   document.getElementById('rateValLabel').textContent = `${App.config.speechRate}x (${App.config.speechRate <= 0.85 ? '推荐小学生' : '进阶语速'})`;
   document.getElementById('cfgVadTimeout').value = App.config.vadTimeout;
   document.getElementById('vadValLabel').textContent = `${App.config.vadTimeout} 秒`;
-  document.getElementById('cfgRecastEnabled').checked = App.config.recastEnabled;
+  
+  const langSel = document.getElementById('cfgRecogLangSelect');
+  if (langSel) langSel.value = App.config.recognitionLang || 'zh-CN';
+  
+  const modeSel = document.getElementById('cfgTeachModeSelect');
+  if (modeSel) modeSel.value = App.config.teachMode || 'bilingual';
+  
   document.getElementById('cfgShowZhSubtitle').checked = App.config.showZhSubtitle;
 }
 
-// 2. 动态发现并加载课件插件库
+// 动态发现并加载课件
 async function loadCoursewares() {
   const select = document.getElementById('coursewareSelect');
   select.innerHTML = '<option value="">正在加载课件库...</option>';
@@ -118,24 +123,18 @@ async function loadCoursewares() {
     if (json.code === 0 && json.data.length > 0) {
       App.coursewares = json.data;
       select.innerHTML = '';
-      json.data.forEach((cw, idx) => {
+      json.data.forEach((cw) => {
         const opt = document.createElement('option');
         opt.value = cw.id;
         opt.textContent = `[${cw.grade}] ${cw.title}`;
         select.appendChild(opt);
       });
-      // 默认选中第一个
       App.activeCourseware = json.data[0].data;
     } else {
-      select.innerHTML = '<option value="default">默认自由英语畅聊</option>';
-      App.activeCourseware = {
-        persona: { name: "Emma", systemPrompt: "You are Emma, a friendly English tutor." },
-        initialGreeting: "Hello! Nice to meet you! How are you today?"
-      };
+      fallbackCourseware(select);
     }
   } catch (err) {
-    console.warn('获取课件库失败，回退到内置模式:', err);
-    select.innerHTML = '<option value="default">默认自由英语畅聊</option>';
+    fallbackCourseware(select);
   }
 
   select.addEventListener('change', (e) => {
@@ -144,23 +143,46 @@ async function loadCoursewares() {
       App.activeCourseware = found.data;
       appendTranscript('system', `📚 已切换课件：${found.title}`);
       if (App.isCalling) {
-        // 重启开场白
         resetConversation();
       }
     }
   });
 }
 
-// 3. 语音音色加载与试听
+function fallbackCourseware(select) {
+  select.innerHTML = '<option value="pep3a">小学三年级 · Unit 1: Making friends</option>';
+  App.activeCourseware = {
+    persona: {
+      name: "Bingo",
+      systemPrompt: "You are Bingo, a friendly puppy and classmate for a Chinese Grade 3 student. Speak in simple English with friendly Chinese explanations. Guide the child to repeat key phrases."
+    },
+    initialGreeting: "Hello! I am Bingo. What is your name? 你好呀！我是小狗 Bingo。你叫什么名字呢？",
+    demoSteps: [
+      {
+        trigger: ["hello", "hi", "bingo", "name", "名字", "你好", "我是"],
+        reply: "Nice to meet you! 很高兴认识你！Look, I can wave my hand. 看，我会挥手哦。Can you wave your hand? 你会挥挥手吗？"
+      },
+      {
+        trigger: ["yes", "can", "hand", "wave", "会", "可以", "手"],
+        reply: "Super! 太棒了！We are good friends now. 我们现在是好朋友啦。Let's share our toys! 一起来分享玩具吧！"
+      },
+      {
+        trigger: ["share", "ok", "good", "friend", "好", "分享", "朋友"],
+        reply: "Bingo! You did an amazing job today! 恭喜你完成今天的对话关卡，奖励你一颗大金星！⭐"
+      }
+    ]
+  };
+}
+
+// 语音音色加载
 function initVoices() {
   const voiceSelect = document.getElementById('cfgVoiceSelect');
   function populate() {
     const voices = window.speechSynthesis.getVoices();
     voiceSelect.innerHTML = '';
-    const enVoices = voices.filter(v => v.lang.startsWith('en'));
-    const listToRender = enVoices.length > 0 ? enVoices : voices;
-
-    listToRender.forEach(v => {
+    
+    // 中文和英文语音都收集，供中英双语发音选择
+    voices.forEach(v => {
       const opt = document.createElement('option');
       opt.value = v.voiceURI;
       opt.textContent = `${v.name} (${v.lang})`;
@@ -170,12 +192,12 @@ function initVoices() {
       voiceSelect.appendChild(opt);
     });
 
-    if (!App.config.voiceURI && enVoices.length > 0) {
-      // 优先选自然美音
-      const natural = enVoices.find(v => v.name.includes('Natural') || v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha'));
-      if (natural) {
-        App.config.voiceURI = natural.voiceURI;
-        voiceSelect.value = natural.voiceURI;
+    if (!App.config.voiceURI && voices.length > 0) {
+      // 默认优先选自然语音
+      const preferred = voices.find(v => v.lang.includes('zh') || v.name.includes('Natural') || v.name.includes('Tingting') || v.name.includes('Zira'));
+      if (preferred) {
+        App.config.voiceURI = preferred.voiceURI;
+        voiceSelect.value = preferred.voiceURI;
       }
     }
   }
@@ -186,7 +208,7 @@ function initVoices() {
   }
 }
 
-// 4. 状态机控制与 UI 视觉切换
+// 状态机控制与 UI 视觉切换
 function setAppState(newState) {
   App.state = newState;
   const orb = document.getElementById('orbContainer');
@@ -196,38 +218,41 @@ function setAppState(newState) {
 
   orb.className = 'voice-orb-container';
 
+  const hasApiKey = Boolean(App.config.apiKey && App.config.apiKey.trim());
+  const modeTag = hasApiKey ? '✨ 大模型实时智能生成中' : '🎮 课标体验模式（免Key畅通）';
+
   switch (newState) {
     case 'IDLE':
       orb.classList.add('state-idle');
       indicator.textContent = App.isCalling ? '已连接 · 准备倾听' : '点击下方按钮开始语音通话';
-      subStatus.textContent = App.isCalling ? '随时开口说话即可' : '双手免提 · 像真人打微信电话一样聊英语';
+      subStatus.textContent = App.isCalling ? `随时开口说话即可 · ${modeTag}` : '双手免提 · 像真人打微信电话一样聊英语';
       icon.textContent = '🎙️';
       break;
 
     case 'LISTENING':
       orb.classList.add('state-listening');
       indicator.textContent = '正在倾听您说话...';
-      subStatus.textContent = '请大声自然说英语，说完停顿 1 秒即可自动接话';
+      subStatus.textContent = '请大声自然说话（支持中英双语），说完停顿 1 秒即可自动接话';
       icon.textContent = '👂';
       break;
 
     case 'THINKING':
       orb.classList.add('state-thinking');
       indicator.textContent = '正在思考回复中...';
-      subStatus.textContent = '正在组织符合小学课标的地道英文...';
+      subStatus.textContent = `${modeTag}，正在组织亲切双语回复...`;
       icon.textContent = '✨';
       break;
 
     case 'SPEAKING':
       orb.classList.add('state-speaking');
       indicator.textContent = `${App.activeCourseware?.persona?.name || 'AI'} 正在说话...`;
-      subStatus.textContent = '注意听纯正母语发音，听完即可直接接话';
+      subStatus.textContent = '注意听双语带读发音，听完即可直接接话（也可轻点声波球打断）';
       icon.textContent = '🗣️';
       break;
   }
 }
 
-// 5. 通话开启与结束 (Call Toggle)
+// 通话开关
 function toggleCall() {
   if (App.isCalling) {
     endCall();
@@ -238,6 +263,7 @@ function toggleCall() {
 
 function startCall() {
   App.isCalling = true;
+  App.demoStepIndex = 0;
   const btn = document.getElementById('callToggleBtn');
   btn.className = 'call-btn end-call';
   btn.querySelector('.btn-text').textContent = '挂断通话';
@@ -245,7 +271,8 @@ function startCall() {
 
   document.getElementById('muteBtn').disabled = false;
 
-  appendTranscript('system', '🟢 通话已接通！正在呼叫外教伙伴...');
+  const hasKey = Boolean(App.config.apiKey && App.config.apiKey.trim());
+  appendTranscript('system', `🟢 通话已接通！[模式: ${hasKey ? '大模型实时生成' : '课标内置对练模式(免Key)'}]`);
   resetConversation();
 }
 
@@ -258,52 +285,57 @@ function endCall() {
 
   document.getElementById('muteBtn').disabled = true;
 
-  // 停止语音与识别
   stopListening();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
   }
 
   setAppState('IDLE');
-  appendTranscript('system', '🔴 通话已挂断。点击按钮可随时重新拨通！');
+  appendTranscript('system', '🔴 通话已挂断。点击按钮可随时重新开始！');
 }
 
 function resetConversation() {
   App.conversationHistory = [];
+  App.demoStepIndex = 0;
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
   const cw = App.activeCourseware;
-  const greetingEn = cw?.initialGreeting || "Hello! Nice to meet you!";
-  const greetingZh = cw?.initialGreetingZh || "你好呀！很高兴认识你！";
+  const greeting = cw?.initialGreeting || "Hello! I am Bingo. What is your name? 你好呀！我是 Bingo，你叫什么名字呀？";
 
-  // 添加系统提示词到历史
+  // 添加系统设定
   if (cw?.persona?.systemPrompt) {
-    App.conversationHistory.push({
-      role: 'system',
-      content: cw.persona.systemPrompt
-    });
+    let prompt = cw.persona.systemPrompt;
+    if (App.config.teachMode === 'bilingual') {
+      prompt += "\nIMPORTANT: Always reply with English sentence first, followed by clear friendly Chinese explanation so the child can understand immediately. Guide the child on what to say next.";
+    }
+    App.conversationHistory.push({ role: 'system', content: prompt });
   }
 
-  // 播放开场白
   setTimeout(() => {
-    speakAiResponse(greetingEn, greetingZh);
+    speakAiResponse(greeting);
   }, 400);
 }
 
-// 6. 核心：语音合成 (TTS) 与自主循环驱动
-function speakAiResponse(textEn, textZh = "") {
+// 语音合成 (TTS)：中英文无缝发音
+function speakAiResponse(fullText) {
   if (!('speechSynthesis' in window)) {
-    alert('您的浏览器不支持语音朗读，请使用 Chrome 或 Edge 浏览器');
+    alert('您的设备暂不支持语音朗读，请使用 Safari、Chrome 或 Edge 浏览器');
     return;
   }
 
-  // 先把 AI 的发言记入上下文
-  App.conversationHistory.push({ role: 'assistant', content: textEn });
-  appendTranscript('bot', `${App.activeCourseware?.persona?.name || 'AI'}: ${textEn}`, textZh);
+  stopListening(); // 说话前立刻关闭麦克风，杜绝扬声器尾音被自录！
+  if (App.echoGuardTimer) clearTimeout(App.echoGuardTimer);
+
+  // 记录到历史
+  App.conversationHistory.push({ role: 'assistant', content: fullText });
+  appendTranscript('bot', `${App.activeCourseware?.persona?.name || 'AI'}: ${fullText}`);
 
   window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(textEn);
-  utter.lang = 'en-US';
+  const utter = new SpeechSynthesisUtterance(fullText);
+  
+  // 智能识别语言：如果包含汉字，使用中文语言环境（iOS 和各平台中文语音读英文发音很自然且中英兼备）
+  const hasChinese = /[\u4e00-\u9fa5]/.test(fullText);
+  utter.lang = hasChinese ? 'zh-CN' : 'en-US';
   utter.rate = parseFloat(App.config.speechRate) || 0.85;
 
   const voices = window.speechSynthesis.getVoices();
@@ -314,46 +346,53 @@ function speakAiResponse(textEn, textZh = "") {
 
   utter.onstart = () => {
     setAppState('SPEAKING');
-    stopListening(); // 说话时暂停麦克风，防止啸叫回音
   };
 
   utter.onend = () => {
-    // 关键：AI 说完之后，立刻自主进入倾听状态，等待孩子下一句！
+    // 关键防回声机制 (Echo Guard)：语音播完后缓冲 600ms，确保 iPad 扬声器完全停止后再开启麦克风！
     if (App.isCalling && !App.isMuted) {
-      setAppState('LISTENING');
-      startListening();
+      App.echoGuardTimer = setTimeout(() => {
+        if (App.isCalling && !App.isMuted) {
+          setAppState('LISTENING');
+          startListening();
+        }
+      }, 600);
     } else {
       setAppState('IDLE');
     }
   };
 
   utter.onerror = (e) => {
-    console.warn('TTS 发音被中断或出错:', e);
+    console.warn('TTS 发音被中断:', e);
     if (App.isCalling && !App.isMuted) {
-      setAppState('LISTENING');
-      startListening();
+      setTimeout(() => {
+        if (App.isCalling && !App.isMuted) {
+          setAppState('LISTENING');
+          startListening();
+        }
+      }, 500);
     }
   };
 
-  App.currentUtterance = utter;
   window.speechSynthesis.speak(utter);
 }
 
-// 7. 核心：语音识别 (STT) 与 VAD 自动静音感应
+// 语音识别 (STT)：支持中英双语混合识别
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      const httpsUrl = `https://${location.hostname}:3443`;
-      appendTranscript('system', `⚠️ iPad / 手机端需通过 HTTPS 才能调用麦克风！请点击切换到安全通道：<a href="${httpsUrl}" style="color:#38bdf8;text-decoration:underline;">${httpsUrl}</a>（点击后选择“显示详细信息➔继续访问”即可完全解锁语音对练！）`);
+      const httpsUrl = `https://${location.hostname}:3000`;
+      appendTranscript('system', `⚠️ iPad / 手机端需通过 HTTPS 才能调用麦克风！请点击切换到安全通道：<a href="${httpsUrl}" style="color:#38bdf8;text-decoration:underline;">${httpsUrl}</a>（点击后选择“显示详细信息➔访问此网站”即可完全解锁语音对练！）`);
     } else {
-      appendTranscript('system', '⚠️ 当前浏览器暂未开启麦克风或不支持语音录入，请确保在系统设置中允许浏览器访问麦克风。推荐使用 Chrome、Edge 或 iPad Safari (HTTPS)！');
+      appendTranscript('system', '⚠️ 当前浏览器暂未开启麦克风或不支持语音录入，请确保在系统设置中允许浏览器访问麦克风。推荐使用 iPad Safari (HTTPS) 或 Chrome！');
     }
     return null;
   }
 
   const rec = new SpeechRecognition();
-  rec.lang = 'en-US';
+  // 采用双语混合或用户设定语种（默认 zh-CN 能同时听懂中文和英语词汇）
+  rec.lang = App.config.recognitionLang || 'zh-CN';
   rec.continuous = true;
   rec.interimResults = true;
   rec.maxAlternatives = 1;
@@ -367,6 +406,9 @@ function initSpeechRecognition() {
   };
 
   rec.onresult = (event) => {
+    // 如果处于思考或说话状态，忽略任何声音输入
+    if (App.state === 'SPEAKING' || App.state === 'THINKING') return;
+
     let interim = '';
     for (let i = event.resultIndex; i < event.results.length; ++i) {
       if (event.results[i].isFinal) {
@@ -379,11 +421,11 @@ function initSpeechRecognition() {
     const currentText = (finalTranscript + ' ' + interim).trim();
     if (currentText) {
       setAppState('LISTENING');
-      // 重置静音计时器（VAD 机制：孩子停止发音达到预设时间后自动提交！）
+      // VAD 自动静音感应
       if (App.speechTimer) clearTimeout(App.speechTimer);
       const timeoutMs = (parseFloat(App.config.vadTimeout) || 1.2) * 1000;
       App.speechTimer = setTimeout(() => {
-        if (currentText) {
+        if (currentText && App.state !== 'SPEAKING' && App.state !== 'THINKING') {
           commitUserSpeech(currentText);
           finalTranscript = '';
         }
@@ -397,7 +439,6 @@ function initSpeechRecognition() {
   };
 
   rec.onend = () => {
-    // 如果仍在通话中且处于倾听状态，自动重启监听保持永不掉线
     if (App.isCalling && !App.isMuted && App.state === 'LISTENING') {
       try { rec.start(); } catch (e) {}
     }
@@ -413,13 +454,12 @@ function startListening() {
   if (!App.recognition) return;
   try {
     App.recognition.start();
-  } catch (e) {
-    // 已经在运行
-  }
+  } catch (e) {}
 }
 
 function stopListening() {
   if (App.speechTimer) clearTimeout(App.speechTimer);
+  if (App.echoGuardTimer) clearTimeout(App.echoGuardTimer);
   if (App.recognition) {
     try {
       App.recognition.stop();
@@ -427,7 +467,7 @@ function stopListening() {
   }
 }
 
-// 8. 提交孩子所说的话并请求大模型大脑
+// 智能回复决策中枢：有 Key 走大模型，无 Key 走课标体验对练
 async function commitUserSpeech(spokenText) {
   if (!spokenText.trim()) return;
   stopListening();
@@ -436,6 +476,18 @@ async function commitUserSpeech(spokenText) {
   App.conversationHistory.push({ role: 'user', content: spokenText.trim() });
   setAppState('THINKING');
 
+  const hasKey = Boolean(App.config.apiKey && App.config.apiKey.trim());
+
+  // 1. 如果没有配置 API Key，启动课标内置体验对练模式（绝不重复报错英文！）
+  if (!hasKey) {
+    setTimeout(() => {
+      const reply = generateDemoReply(spokenText.trim());
+      speakAiResponse(reply);
+    }, 700);
+    return;
+  }
+
+  // 2. 如果配置了 Key，调用大模型真实大脑
   try {
     const payload = {
       baseUrl: App.config.baseUrl,
@@ -453,42 +505,63 @@ async function commitUserSpeech(spokenText) {
 
     const data = await res.json();
     if (data.reply) {
-      speakAiResponse(data.reply, data.replyZh || "");
+      speakAiResponse(data.reply);
     } else {
-      speakAiResponse("I heard you, let's keep talking!");
+      speakAiResponse("Good job! Keep going! 答得真棒，我们继续吧！");
     }
   } catch (err) {
     console.error('通信失败:', err);
-    speakAiResponse("Sorry, my internet had a hiccup. Can you say that again?");
+    // 网络降级为演示回复
+    const fallback = generateDemoReply(spokenText.trim());
+    speakAiResponse(fallback);
   }
 }
 
-// 9. 字幕卡片与辅助 UI
-function appendTranscript(type, text, subtext = '') {
+// 内置免 Key 课标体验对练逻辑（解决死循环重复问题）
+function generateDemoReply(input) {
+  const cw = App.activeCourseware;
+  const lower = input.toLowerCase();
+
+  if (cw && cw.demoSteps && cw.demoSteps.length > 0) {
+    // 查找匹配的关卡步骤
+    for (const step of cw.demoSteps) {
+      if (step.trigger.some(k => lower.includes(k.toLowerCase()))) {
+        return step.reply;
+      }
+    }
+    // 顺次推进
+    const currentStep = cw.demoSteps[App.demoStepIndex % cw.demoSteps.length];
+    App.demoStepIndex++;
+    return `Super! 说得真好！${currentStep.reply}`;
+  }
+
+  // 通用友好带读
+  return `Great try! 很好！You said: "${input}". 试着跟我说：I am happy today! 我今天很开心！`;
+}
+
+// 字幕卡片
+function appendTranscript(type, text) {
   const box = document.getElementById('transcriptBox');
   const line = document.createElement('div');
   line.className = `transcript-line ${type}`;
-  line.innerHTML = `<span>${text}</span>${subtext && App.config.showZhSubtitle ? `<div class="translation">${subtext}</div>` : ''}`;
+  line.innerHTML = `<span>${text}</span>`;
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
 }
 
-// 10. 事件绑定
+// 事件绑定
 function bindUIEvents() {
-  // 通话开关
   document.getElementById('callToggleBtn').addEventListener('click', toggleCall);
   document.getElementById('orbContainer').addEventListener('click', () => {
     if (!App.isCalling) {
       startCall();
     } else if (App.state === 'SPEAKING') {
-      // 允许孩子点击球打断 AI 说话
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       setAppState('LISTENING');
       startListening();
     }
   });
 
-  // 麦克风静音开关
   const muteBtn = document.getElementById('muteBtn');
   muteBtn.addEventListener('click', () => {
     App.isMuted = !App.isMuted;
@@ -509,7 +582,6 @@ function bindUIEvents() {
     }
   });
 
-  // 文字抽屉输入辅助
   const textToggleBtn = document.getElementById('textInputToggleBtn');
   const textDrawer = document.getElementById('textDrawer');
   textToggleBtn.addEventListener('click', () => {
@@ -529,7 +601,7 @@ function bindUIEvents() {
     if (e.key === 'Enter') manualSend();
   });
 
-  // ⚙️ 设置弹窗逻辑
+  // ⚙️ 设置弹窗
   const modal = document.getElementById('settingsModal');
   document.getElementById('openSettingsBtn').addEventListener('click', () => {
     syncSettingsModal();
@@ -542,7 +614,6 @@ function bindUIEvents() {
     if (e.target === modal) modal.classList.remove('active');
   });
 
-  // 预设切换联动
   document.getElementById('modelPresetSelect').addEventListener('change', (e) => {
     const p = PRESETS[e.target.value];
     if (p) {
@@ -552,7 +623,6 @@ function bindUIEvents() {
     }
   });
 
-  // 滑块显示联动
   document.getElementById('cfgSpeechRate').addEventListener('input', (e) => {
     document.getElementById('rateValLabel').textContent = `${e.target.value}x (${e.target.value <= 0.85 ? '推荐小学生' : '进阶语速'})`;
   });
@@ -560,14 +630,13 @@ function bindUIEvents() {
     document.getElementById('vadValLabel').textContent = `${e.target.value} 秒`;
   });
 
-  // 发音试听
   document.getElementById('testVoiceBtn').addEventListener('click', () => {
     const selectedVoiceURI = document.getElementById('cfgVoiceSelect').value;
     const rate = parseFloat(document.getElementById('cfgSpeechRate').value) || 0.85;
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance("Hello! I am your AI English speaking tutor. Nice to meet you!");
-      u.lang = 'en-US';
+      const u = new SpeechSynthesisUtterance("Hello! 你好呀！我是你的英语伴学伙伴 Bingo！Nice to meet you!");
+      u.lang = 'zh-CN';
       u.rate = rate;
       const v = window.speechSynthesis.getVoices().find(x => x.voiceURI === selectedVoiceURI);
       if (v) u.voice = v;
@@ -575,7 +644,6 @@ function bindUIEvents() {
     }
   });
 
-  // 保存设置
   document.getElementById('saveSettingsBtn').addEventListener('click', () => {
     App.config.preset = document.getElementById('modelPresetSelect').value;
     App.config.baseUrl = document.getElementById('cfgBaseUrl').value.trim();
@@ -584,11 +652,23 @@ function bindUIEvents() {
     App.config.voiceURI = document.getElementById('cfgVoiceSelect').value;
     App.config.speechRate = parseFloat(document.getElementById('cfgSpeechRate').value);
     App.config.vadTimeout = parseFloat(document.getElementById('cfgVadTimeout').value);
-    App.config.recastEnabled = document.getElementById('cfgRecastEnabled').checked;
+    
+    const langSel = document.getElementById('cfgRecogLangSelect');
+    if (langSel) App.config.recognitionLang = langSel.value;
+    
+    const modeSel = document.getElementById('cfgTeachModeSelect');
+    if (modeSel) App.config.teachMode = modeSel.value;
+
     App.config.showZhSubtitle = document.getElementById('cfgShowZhSubtitle').checked;
 
     saveConfig();
     modal.classList.remove('active');
-    appendTranscript('system', '✅ 设置已保存成功！');
+    
+    const hasKey = Boolean(App.config.apiKey);
+    appendTranscript('system', `✅ 设置保存成功！当前模式: ${hasKey ? '大模型实时生成' : '课标内置对练模式(免Key)'}`);
+    
+    if (App.isCalling) {
+      resetConversation();
+    }
   });
 }
