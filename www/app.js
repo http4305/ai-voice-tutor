@@ -286,7 +286,7 @@ function renderCoursewareBoard(cw) {
     }
   }
 
-  // 3. 单元重点图文生词 (Word Bank) 与超清晰大音标
+  // 3. 单元重点图文生词 (Word Bank) 与彩色音节拼读胶囊
   const vGrid = document.getElementById('vocabCardsGrid');
   if (vGrid) {
     vGrid.innerHTML = '';
@@ -294,16 +294,37 @@ function renderCoursewareBoard(cw) {
     vocab.forEach(v => {
       const card = document.createElement('div');
       card.className = 'vocab-card';
-      const blendHtml = v.blend ? `<span class="vocab-blend-tag">拼读: ${v.blend}</span>` : '';
+
+      // 生成彩色音节胶囊
+      let sylHtml = '';
+      if (v.sylCapsules && v.sylCapsules.length > 0) {
+        const caps = v.sylCapsules.map((c, i) => {
+          return `<span class="syl-capsule ${c.color || (i % 2 === 0 ? 'pink' : 'blue')}" data-sound="${c.sound || c.text}" title="点这里单独听发音: ${c.text}">${c.text}</span>`;
+        }).join('<span class="syl-dot">·</span>');
+        sylHtml = `
+          <div class="syl-capsules-row">${caps}</div>
+          <div class="syl-hint-tip">点字母组合听发音 👆</div>
+        `;
+      }
+
       card.innerHTML = `
         <div class="vocab-emoji">${v.emoji || '📝'}</div>
         <div class="vocab-word">${v.word}</div>
         <div class="vocab-phonetic-badge">${v.phonetic || ''}</div>
-        ${blendHtml}
+        ${sylHtml}
         <div class="vocab-zh">${v.zh}</div>
       `;
+
+      // 绑定每个独立音节胶囊的点击事件（阻止事件冒泡，只发单音节的声音）
+      card.querySelectorAll('.syl-capsule').forEach(capEl => {
+        capEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sound = capEl.dataset.sound;
+          playSingleVoice(sound, 0.75); // 慢速拼读发音
+        });
+      });
+
       card.addEventListener('click', () => {
-        // 先慢速读音标/单词，再读例句
         playSingleVoice(v.word + (v.sent ? `. ${v.sent}` : ''));
       });
       vGrid.appendChild(card);

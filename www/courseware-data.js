@@ -42,8 +42,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "名字",
         emoji: "🏷️",
         sent: "My name is Amy.",
-        blend: "n - ame",
-        chunks: [{ l: "n", s: "/n/" }, { l: "a_e", s: "/eɪ/" }, { l: "m", s: "/m/" }]
+        sylCapsules: [{ text: "n", sound: "nuh", color: "pink" }, { text: "ame", sound: "eɪm", color: "blue" }]
       },
       {
         word: "nice",
@@ -51,8 +50,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "令人愉快的",
         emoji: "😊",
         sent: "Nice to meet you.",
-        blend: "n - ice",
-        chunks: [{ l: "n", s: "/n/" }, { l: "i_e", s: "/aɪ/" }, { l: "ce", s: "/s/" }]
+        sylCapsules: [{ text: "n", sound: "nuh", color: "pink" }, { text: "ice", sound: "aɪs", color: "blue" }]
       },
       {
         word: "friend",
@@ -60,8 +58,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "朋友",
         emoji: "🧑‍🤝‍🧑",
         sent: "We are good friends.",
-        blend: "fr - ie - nd",
-        chunks: [{ l: "fr", s: "/fr/" }, { l: "ie", s: "/e/" }, { l: "nd", s: "/nd/" }]
+        sylCapsules: [{ text: "fr", sound: "fr", color: "pink" }, { text: "iend", sound: "end", color: "blue" }]
       },
       {
         word: "hand",
@@ -69,8 +66,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "手",
         emoji: "✋",
         sent: "Wave your hand.",
-        blend: "h - a - nd",
-        chunks: [{ l: "h", s: "/h/" }, { l: "a", s: "/æ/" }, { l: "nd", s: "/nd/" }]
+        sylCapsules: [{ text: "h", sound: "huh", color: "pink" }, { text: "and", sound: "and", color: "blue" }]
       },
       {
         word: "arm",
@@ -78,8 +74,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "胳膊",
         emoji: "💪",
         sent: "Wave your arms.",
-        blend: "ar - m",
-        chunks: [{ l: "ar", s: "/ɑː/" }, { l: "m", s: "/m/" }]
+        sylCapsules: [{ text: "ar", sound: "ɑːr", color: "pink" }, { text: "m", sound: "m", color: "blue" }]
       },
       {
         word: "ear",
@@ -87,8 +82,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "耳朵",
         emoji: "👂",
         sent: "Touch your ear.",
-        blend: "ear",
-        chunks: [{ l: "ear", s: "/ɪə/" }]
+        sylCapsules: [{ text: "ear", sound: "ɪər", color: "pink" }]
       },
       {
         word: "eye",
@@ -96,8 +90,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "眼睛",
         emoji: "👁️",
         sent: "Close your eyes.",
-        blend: "eye",
-        chunks: [{ l: "eye", s: "/aɪ/" }]
+        sylCapsules: [{ text: "eye", sound: "aɪ", color: "blue" }]
       },
       {
         word: "mouth",
@@ -105,8 +98,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "嘴巴",
         emoji: "👄",
         sent: "Open your mouth.",
-        blend: "m - ou - th",
-        chunks: [{ l: "m", s: "/m/" }, { l: "ou", s: "/aʊ/" }, { l: "th", s: "/θ/" }]
+        sylCapsules: [{ text: "m", sound: "muh", color: "pink" }, { text: "outh", sound: "aʊθ", color: "blue" }]
       },
       {
         word: "share",
@@ -114,8 +106,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "分享",
         emoji: "🤝",
         sent: "We share toys.",
-        blend: "sh - are",
-        chunks: [{ l: "sh", s: "/ʃ/" }, { l: "are", s: "/eə/" }]
+        sylCapsules: [{ text: "sh", sound: "ʃ", color: "pink" }, { text: "are", sound: "eər", color: "blue" }]
       }
     ],
     quickPrompts: [
@@ -226,8 +217,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "父亲；爸爸",
         emoji: "👨",
         sent: "He is my father.",
-        blend: "fa - ther",
-        chunks: [{ l: "fa", s: "/fɑː/" }, { l: "ther", s: "/ðə/" }]
+        sylCapsules: [{ text: "fa", sound: "fah", color: "pink" }, { text: "ther", sound: "ther", color: "blue" }]
       },
       {
         word: "mother",
@@ -235,8 +225,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "母亲；妈妈",
         emoji: "👩",
         sent: "She is my mother.",
-        blend: "mo - ther",
-        chunks: [{ l: "mo", s: "/mʌ/" }, { l: "ther", s: "/ðə/" }]
+        sylCapsules: [{ text: "mo", sound: "muh", color: "pink" }, { text: "ther", sound: "ther", color: "blue" }]
       },
       {
         word: "brother",
@@ -244,8 +233,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "兄；弟",
         emoji: "👦",
         sent: "This is my brother.",
-        blend: "bro - ther",
-        chunks: [{ l: "bro", s: "/brʌ/" }, { l: "ther", s: "/ðə/" }]
+        sylCapsules: [{ text: "bro", sound: "bruh", color: "pink" }, { text: "ther", sound: "ther", color: "blue" }]
       },
       {
         word: "sister",
@@ -253,8 +241,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "姐；妹",
         emoji: "👧",
         sent: "This is my sister.",
-        blend: "sis - ter",
-        chunks: [{ l: "sis", s: "/sɪs/" }, { l: "ter", s: "/tə/" }]
+        sylCapsules: [{ text: "sis", sound: "sis", color: "pink" }, { text: "ter", sound: "ter", color: "blue" }]
       },
       {
         word: "family",
@@ -262,8 +249,7 @@ window.BUILTIN_COURSEWARES = [
         zh: "家庭；家人",
         emoji: "🏡",
         sent: "I love my family.",
-        blend: "fa - mi - ly",
-        chunks: [{ l: "fa", s: "/fæ/" }, { l: "mi", s: "/mə/" }, { l: "ly", s: "/li/" }]
+        sylCapsules: [{ text: "fa", sound: "fa", color: "pink" }, { text: "mi", sound: "mi", color: "yellow" }, { text: "ly", sound: "lee", color: "blue" }]
       }
     ],
     quickPrompts: [

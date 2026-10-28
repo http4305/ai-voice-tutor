@@ -413,9 +413,65 @@ body {
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 8px;
   padding: 2px 10px;
-  margin: 6px 0 4px;
+  margin: 4px 0;
   letter-spacing: 0.5px;
   display: inline-block;
+}
+
+/* 💊 彩色音节拼读胶囊组合 (Syllable Chunks) - 像素级对齐教研大卡 */
+.syl-capsules-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin: 6px 0 2px;
+}
+
+.syl-capsule {
+  font-size: 19px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.syl-capsule:hover {
+  transform: scale(1.12);
+}
+
+.syl-capsule.pink {
+  background: #ffe4e6;
+  color: #e11d48;
+  border: 1.5px solid #fda4af;
+}
+
+.syl-capsule.blue {
+  background: #e0f2fe;
+  color: #0284c7;
+  border: 1.5px solid #7dd3fc;
+}
+
+.syl-capsule.yellow {
+  background: #fef9c3;
+  color: #ca8a04;
+  border: 1.5px solid #fde047;
+}
+
+.syl-dot {
+  color: #f59e0b;
+  font-size: 16px;
+  font-weight: 900;
+  user-select: none;
+}
+
+.syl-hint-tip {
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-bottom: 4px;
 }
 
 /* 自然拼读拆音小标签 */
