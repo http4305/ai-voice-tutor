@@ -100,20 +100,17 @@ async function handleRequest(req, res) {
         let { baseUrl, apiKey, model, messages, temperature = 0.7 } = payload;
 
         if (!baseUrl) {
-          baseUrl = 'https://api.deepseek.com/v1';
+          baseUrl = 'http://127.0.0.1:8317/v1';
+        }
+        if (!apiKey) {
+          // 自动无缝接入本机正在运行的 EasyCLIProxyAPI
+          apiKey = '123456';
+          if (!model) model = 'gemini-3.5-flash-lite';
         }
         baseUrl = baseUrl.replace(/\/+$/, '');
         const targetUrl = baseUrl.endsWith('/chat/completions') 
           ? baseUrl 
           : `${baseUrl}/chat/completions`;
-
-        if (!apiKey && !targetUrl.includes('localhost') && !targetUrl.includes('127.0.0.1')) {
-          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-          return res.end(JSON.stringify({
-            reply: "Hello! Please tap the Settings button (⚙️) on the top right to enter your API Key!",
-            replyZh: "你好！请点击右上角设置 (⚙️) 填入你的大模型 API Key（如 DeepSeek 或 通义千问），即可开始畅聊！"
-          }));
-        }
 
         const headers = { 'Content-Type': 'application/json' };
         if (apiKey) {

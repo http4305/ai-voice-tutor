@@ -7,6 +7,12 @@
  */
 
 const PRESETS = {
+  easycliproxy: {
+    baseUrl: 'http://127.0.0.1:8317/v1',
+    model: 'gemini-3.5-flash-lite',
+    apiKey: '123456',
+    placeholder: '已直连 EasyCLIProxyAPI (默认: 123456)'
+  },
   deepseek: {
     baseUrl: 'https://api.deepseek.com/v1',
     model: 'deepseek-chat',
@@ -55,12 +61,12 @@ const App = {
   mistakes: [],
   quizScore: 0,
 
-  // 本地配置
+  // 本地配置（默认直连 EasyCLIProxyAPI）
   config: {
-    preset: 'deepseek',
-    baseUrl: 'https://api.deepseek.com/v1',
-    apiKey: '',
-    modelName: 'deepseek-chat',
+    preset: 'easycliproxy',
+    baseUrl: 'http://127.0.0.1:8317/v1',
+    apiKey: '123456',
+    modelName: 'gemini-3.5-flash-lite',
     voiceURI: '',
     speechRate: 0.85,
     vadTimeout: 1.2,
