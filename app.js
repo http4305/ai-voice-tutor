@@ -1,8 +1,8 @@
 /**
- * AI-Voice-Agent 前端全双工语音通信与智能中枢
- * 1. 模块化模型中继 (OpenAI / DeepSeek / 通义千问 / Ollama)
- * 2. 模块化课件动态热插拔 (/api/courseware)
- * 3. 中英双语亲切教学 + 内置体验模式（免Key也能玩，填Key自由聊）
+ * AI-Voice-Agent 前端全双工语音通信与智能教学中枢
+ * 1. 离线/在线双模课件库秒级加载（内置 + 动态扩展）
+ * 2. 严谨精准的语义核验（非胡乱说英文也能对）
+ * 3. 完整的学-练-测-评-错题复习-7天AI儿歌闭环
  * 4. 防回声自录（Echo Guard）与智能 VAD 自动断句
  */
 
@@ -49,8 +49,12 @@ const App = {
   conversationHistory: [],
   speechTimer: null,
   echoGuardTimer: null,
-  demoStepIndex: 0,
+  currentDialogueStep: 0,
   
+  // 错题库与复习数据（本地持久化）
+  mistakes: [],
+  quizScore: 0,
+
   // 本地配置
   config: {
     preset: 'deepseek',
@@ -60,20 +64,22 @@ const App = {
     voiceURI: '',
     speechRate: 0.85,
     vadTimeout: 1.2,
-    recognitionLang: 'zh-CN', // zh-CN: 中英双语都能识别；en-US: 纯英文
-    teachMode: 'bilingual', // bilingual: 中英双语带读；english: 纯英文沉浸
+    recognitionLang: 'zh-CN', // zh-CN: 中英双语都能识别
+    teachMode: 'adaptive',   // adaptive: 动态双轨自适应
     showZhSubtitle: true
   }
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
   loadConfig();
+  loadMistakes();
   initVoices();
   bindUIEvents();
-  await loadCoursewares();
+  initCoursewaresImmediate();
   setAppState('IDLE');
 });
 
+// 1. 本地存储配置与错题本
 function loadConfig() {
   try {
     const saved = localStorage.getItem('ai_voice_agent_cfg');
@@ -94,6 +100,37 @@ function saveConfig() {
   }
 }
 
+function loadMistakes() {
+  try {
+    const saved = localStorage.getItem('ai_voice_mistakes');
+    if (saved) {
+      App.mistakes = JSON.parse(saved);
+    }
+  } catch (e) {
+    App.mistakes = [];
+  }
+}
+
+function saveMistakes() {
+  try {
+    localStorage.setItem('ai_voice_mistakes', JSON.stringify(App.mistakes));
+  } catch (e) {}
+}
+
+function addMistake(question, correctAns, userAns, reason) {
+  App.mistakes.unshift({
+    q: question,
+    correct: correctAns,
+    user: userAns,
+    reason: reason,
+    date: new Date().toLocaleDateString(),
+    reviewCount: 0
+  });
+  if (App.mistakes.length > 30) App.mistakes.pop();
+  saveMistakes();
+  renderMistakesBoard();
+}
+
 function syncSettingsModal() {
   document.getElementById('modelPresetSelect').value = App.config.preset;
   document.getElementById('cfgBaseUrl').value = App.config.baseUrl;
@@ -108,35 +145,56 @@ function syncSettingsModal() {
   if (langSel) langSel.value = App.config.recognitionLang || 'zh-CN';
   
   const modeSel = document.getElementById('cfgTeachModeSelect');
-  if (modeSel) modeSel.value = App.config.teachMode || 'bilingual';
+  if (modeSel) modeSel.value = App.config.teachMode || 'adaptive';
   
   document.getElementById('cfgShowZhSubtitle').checked = App.config.showZhSubtitle;
 }
 
-// 动态发现并加载课件
-async function loadCoursewares() {
+// 2. 课件库秒级离线渲染（彻底解决 iPad 画面空白问题）
+function initCoursewaresImmediate() {
   const select = document.getElementById('coursewareSelect');
-  select.innerHTML = '<option value="">正在加载课件库...</option>';
-  try {
-    const res = await fetch('/api/courseware');
-    const json = await res.json();
-    if (json.code === 0 && json.data.length > 0) {
-      App.coursewares = json.data;
-      select.innerHTML = '';
-      json.data.forEach((cw) => {
-        const opt = document.createElement('option');
-        opt.value = cw.id;
-        opt.textContent = `[${cw.grade}] ${cw.title}`;
-        select.appendChild(opt);
-      });
-      App.activeCourseware = json.data[0].data;
-      renderCoursewareBoard(App.activeCourseware);
-    } else {
-      fallbackCourseware(select);
-    }
-  } catch (err) {
-    fallbackCourseware(select);
+  select.innerHTML = '';
+
+  // 1) 优先使用内置课件立即 100% 渲染，无网络延迟
+  if (window.BUILTIN_COURSEWARES && window.BUILTIN_COURSEWARES.length > 0) {
+    App.coursewares = window.BUILTIN_COURSEWARES.map(c => ({
+      id: c.id,
+      title: c.title,
+      grade: c.grade,
+      data: c
+    }));
   }
+
+  App.coursewares.forEach(cw => {
+    const opt = document.createElement('option');
+    opt.value = cw.id;
+    opt.textContent = `[${cw.grade}] ${cw.title}`;
+    select.appendChild(opt);
+  });
+
+  if (App.coursewares.length > 0) {
+    App.activeCourseware = App.coursewares[0].data;
+    renderCoursewareBoard(App.activeCourseware);
+  }
+
+  // 2) 异步尝试从本地服务热扩充
+  fetch('/api/courseware')
+    .then(r => r.json())
+    .then(json => {
+      if (json.code === 0 && json.data.length > 0) {
+        // 如果后端有更新的课件，追加进去
+        json.data.forEach(extCw => {
+          if (!App.coursewares.some(c => c.id === extCw.id)) {
+            App.coursewares.push(extCw);
+            const opt = document.createElement('option');
+            opt.value = extCw.id;
+            opt.textContent = `[${extCw.grade}] ${extCw.title}`;
+            select.appendChild(opt);
+          }
+        });
+      }
+    })
+    .catch(() => {});
 
   select.addEventListener('change', (e) => {
     const found = App.coursewares.find(c => c.id === e.target.value);
@@ -151,25 +209,25 @@ async function loadCoursewares() {
   });
 }
 
+// 3. 渲染左侧大屏图文课件中心
 function renderCoursewareBoard(cw) {
   if (!cw) return;
-  // 1. 横幅
+
+  // 横幅
   const iconEl = document.getElementById('cwBannerIcon');
-  if (iconEl) iconEl.textContent = cw.bannerEmoji || '📚';
+  if (iconEl) iconEl.textContent = cw.bannerEmoji || '🎒';
   
   const titleEl = document.getElementById('cwTitle');
   if (titleEl) titleEl.textContent = cw.title || '英语同步课件';
   
   const descEl = document.getElementById('cwThemeDesc');
-  if (descEl) descEl.textContent = cw.themeDescription || '【情境】跟着课本核心句型，开始你的英语对练之旅！';
+  if (descEl) descEl.textContent = cw.themeDescription || '【情境导读】跟着课本核心句型，开始你的真实对练之旅！';
 
-  // 2. 课本核心情景对话 (Let's talk)
+  // 1. 课本核心情景对话 (Let's talk)
   const dList = document.getElementById('dialogueList');
   if (dList) {
     dList.innerHTML = '';
-    const dialogues = cw.targetDialogue || [
-      { role: cw.persona?.name || "AI", text: cw.initialGreeting || "Hello!", zh: "你好！" }
-    ];
+    const dialogues = cw.targetDialogue || [];
     dialogues.forEach(item => {
       const row = document.createElement('div');
       row.className = `dialogue-item ${item.role === 'You' ? 'user' : 'bot'}`;
@@ -182,19 +240,13 @@ function renderCoursewareBoard(cw) {
         <span class="play-icon-btn" title="点击听示范发音">🔊</span>
       `;
       row.addEventListener('click', () => {
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const u = new SpeechSynthesisUtterance(item.text);
-          u.lang = 'en-US';
-          u.rate = parseFloat(App.config.speechRate) || 0.85;
-          window.speechSynthesis.speak(u);
-        }
+        playSingleVoice(item.text);
       });
       dList.appendChild(row);
     });
   }
 
-  // 3. 单元重点图文生词 (Word Bank)
+  // 2. 单元重点图文生词 (Word Bank)
   const vGrid = document.getElementById('vocabCardsGrid');
   if (vGrid) {
     vGrid.innerHTML = '';
@@ -209,19 +261,13 @@ function renderCoursewareBoard(cw) {
         <div class="vocab-zh">${v.zh}</div>
       `;
       card.addEventListener('click', () => {
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const u = new SpeechSynthesisUtterance(v.word + (v.sent ? `. ${v.sent}` : ''));
-          u.lang = 'en-US';
-          u.rate = parseFloat(App.config.speechRate) || 0.85;
-          window.speechSynthesis.speak(u);
-        }
+        playSingleVoice(v.word + (v.sent ? `. ${v.sent}` : ''));
       });
       vGrid.appendChild(card);
     });
   }
 
-  // 4. 开口小锦囊 (Quick Prompts)
+  // 3. 开口小锦囊 (Quick Prompts)
   const pGrid = document.getElementById('promptsGrid');
   if (pGrid) {
     pGrid.innerHTML = '';
@@ -237,41 +283,159 @@ function renderCoursewareBoard(cw) {
       pGrid.appendChild(btn);
     });
   }
+
+  // 4. 渲染单元测验与考核打分
+  renderQuizBoard(cw);
+
+  // 5. 渲染错题与7天儿歌
+  renderMistakesBoard();
+  renderChantBoard(cw);
 }
 
-function fallbackCourseware(select) {
-  select.innerHTML = '<option value="pep3a">小学三年级 · Unit 1: Making friends</option>';
-  App.activeCourseware = {
-    persona: {
-      name: "Bingo",
-      systemPrompt: "You are Bingo, a friendly puppy and classmate for a Chinese Grade 3 student. Speak in simple English with friendly Chinese explanations. Guide the child to repeat key phrases."
-    },
-    initialGreeting: "Hello! I am Bingo. What is your name? 你好呀！我是小狗 Bingo。你叫什么名字呢？",
-    demoSteps: [
-      {
-        trigger: ["hello", "hi", "bingo", "name", "名字", "你好", "我是"],
-        reply: "Nice to meet you! 很高兴认识你！Look, I can wave my hand. 看，我会挥手哦。Can you wave your hand? 你会挥挥手吗？"
-      },
-      {
-        trigger: ["yes", "can", "hand", "wave", "会", "可以", "手"],
-        reply: "Super! 太棒了！We are good friends now. 我们现在是好朋友啦。Let's share our toys! 一起来分享玩具吧！"
-      },
-      {
-        trigger: ["share", "ok", "good", "friend", "好", "分享", "朋友"],
-        reply: "Bingo! You did an amazing job today! 恭喜你完成今天的对话关卡，奖励你一颗大金星！⭐"
-      }
-    ]
-  };
+// 4. 单元考核小测与打分系统 (Quiz & Scoring)
+function renderQuizBoard(cw) {
+  const box = document.getElementById('quizQuestionBox');
+  const scoreEl = document.getElementById('quizScoreText');
+  if (!box) return;
+
+  const quizList = cw.unitQuiz || [];
+  if (quizList.length === 0) {
+    box.innerHTML = '<div class="empty-tip">本单元暂未配置小测，可在对话中直接考核！</div>';
+    scoreEl.textContent = '100';
+    return;
+  }
+
+  box.innerHTML = '';
+  App.quizScore = 0;
+  scoreEl.textContent = '0';
+  let answeredCount = 0;
+  const eachScore = Math.floor(100 / quizList.length);
+
+  quizList.forEach((qObj, qIdx) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-item-card';
+    card.innerHTML = `
+      <div class="quiz-question-title">第 ${qIdx + 1} 题：${qObj.q}</div>
+      <div class="quiz-opts-list" id="opts_list_${qIdx}"></div>
+      <div class="quiz-feedback-text" id="fb_text_${qIdx}" style="font-size:12px;margin-top:4px;"></div>
+    `;
+
+    const optContainer = card.querySelector(`#opts_list_${qIdx}`);
+    qObj.options.forEach((optStr, optIdx) => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-choice-btn';
+      btn.textContent = `${String.fromCharCode(65 + optIdx)}. ${optStr}`;
+      btn.addEventListener('click', () => {
+        if (card.dataset.answered) return;
+        card.dataset.answered = 'true';
+        answeredCount++;
+
+        if (optIdx === qObj.answer) {
+          btn.classList.add('correct');
+          App.quizScore += eachScore;
+          if (answeredCount === quizList.length && App.quizScore > 90) App.quizScore = 100;
+          scoreEl.textContent = App.quizScore;
+          card.querySelector(`#fb_text_${qIdx}`).innerHTML = `<span style="color:#6ee7b7;">✔ 答对啦！(+${eachScore}分) ${qObj.explain}</span>`;
+          playSingleVoice("Bingo! That is correct!");
+        } else {
+          btn.classList.add('wrong');
+          scoreEl.textContent = App.quizScore;
+          card.querySelector(`#fb_text_${qIdx}`).innerHTML = `<span style="color:#fca5a5;">❌ 选错啦！正确答案是: ${qObj.options[qObj.answer]} (${qObj.explain})</span>`;
+          playSingleVoice("Try again next time!");
+          // 自动记录错题
+          addMistake(qObj.q, qObj.options[qObj.answer], optStr, qObj.explain);
+        }
+      });
+      optContainer.appendChild(btn);
+    });
+
+    box.appendChild(card);
+  });
 }
 
-// 语音音色加载
+// 5. 渲染错题复习本
+function renderMistakesBoard() {
+  const container = document.getElementById('mistakesList');
+  if (!container) return;
+
+  if (App.mistakes.length === 0) {
+    container.innerHTML = '<div class="empty-tip">暂无错题记录，孩子掌握得非常扎实！⭐</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  App.mistakes.slice(0, 8).forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'mistake-item';
+    row.innerHTML = `
+      <div class="mistake-content">
+        <strong>${item.q}</strong>
+        <p>正确答案：<span style="color:#38bdf8;">${item.correct}</span> | 你的选择：<span style="color:#f87171;">${item.user}</span></p>
+      </div>
+      <button class="pill-mini-btn" onclick="playSingleVoice('${item.correct}')">听正音 🔊</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+// 6. 渲染 7 天 AI 创编儿歌
+function renderChantBoard(cw) {
+  const chant = cw?.sevenDayChant;
+  const titleEl = document.getElementById('chantTitle');
+  const lyricsEl = document.getElementById('chantLyrics');
+  const playBtn = document.getElementById('playChantBtn');
+
+  if (!chant) {
+    if (titleEl) titleEl.textContent = "7天词汇趣味儿歌 (AI 即兴创编)";
+    if (lyricsEl) lyricsEl.innerHTML = '<div class="empty-tip">正在根据本单元词汇量融合生成中...</div>';
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = chant.title;
+  if (lyricsEl) {
+    lyricsEl.innerHTML = '';
+    chant.lines.forEach(line => {
+      const p = document.createElement('div');
+      p.style.cursor = 'pointer';
+      p.innerHTML = `<div class="chant-line-en">${line.en} 🔊</div><div class="chant-line-zh">${line.zh}</div>`;
+      p.addEventListener('click', () => {
+        playSingleVoice(line.en);
+      });
+      lyricsEl.appendChild(p);
+    });
+  }
+
+  if (playBtn) {
+    playBtn.onclick = () => {
+      const fullSong = chant.lines.map(l => l.en).join(". ");
+      playSingleVoice(fullSong, 0.8);
+    };
+  }
+}
+
+// 7. 单句/单词发音工具
+function playSingleVoice(text, rate = null) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  const hasChinese = /[\u4e00-\u9fa5]/.test(text);
+  utter.lang = hasChinese ? 'zh-CN' : 'en-US';
+  utter.rate = rate || (parseFloat(App.config.speechRate) || 0.85);
+
+  const voices = window.speechSynthesis.getVoices();
+  if (App.config.voiceURI) {
+    const v = voices.find(x => x.voiceURI === App.config.voiceURI);
+    if (v) utter.voice = v;
+  }
+  window.speechSynthesis.speak(utter);
+}
+
+// 8. 语音音色初始化
 function initVoices() {
   const voiceSelect = document.getElementById('cfgVoiceSelect');
   function populate() {
     const voices = window.speechSynthesis.getVoices();
     voiceSelect.innerHTML = '';
-    
-    // 中文和英文语音都收集，供中英双语发音选择
     voices.forEach(v => {
       const opt = document.createElement('option');
       opt.value = v.voiceURI;
@@ -283,7 +447,6 @@ function initVoices() {
     });
 
     if (!App.config.voiceURI && voices.length > 0) {
-      // 默认优先选自然语音
       const preferred = voices.find(v => v.lang.includes('zh') || v.name.includes('Natural') || v.name.includes('Tingting') || v.name.includes('Zira'));
       if (preferred) {
         App.config.voiceURI = preferred.voiceURI;
@@ -298,7 +461,7 @@ function initVoices() {
   }
 }
 
-// 状态机控制与 UI 视觉切换
+// 9. 状态机控制
 function setAppState(newState) {
   App.state = newState;
   const orb = document.getElementById('orbContainer');
@@ -307,7 +470,6 @@ function setAppState(newState) {
   const icon = document.getElementById('orbIcon');
 
   orb.className = 'voice-orb-container';
-
   const hasApiKey = Boolean(App.config.apiKey && App.config.apiKey.trim());
   const modeTag = hasApiKey ? '✨ 大模型实时智能生成中' : '🎮 课标体验模式（免Key畅通）';
 
@@ -315,34 +477,34 @@ function setAppState(newState) {
     case 'IDLE':
       orb.classList.add('state-idle');
       indicator.textContent = App.isCalling ? '已连接 · 准备倾听' : '点击下方按钮开始语音通话';
-      subStatus.textContent = App.isCalling ? `随时开口说话即可 · ${modeTag}` : '双手免提 · 像真人打微信电话一样聊英语';
+      subStatus.textContent = App.isCalling ? `随时开口说话即可 · ${modeTag}` : '双手免提 · 看着左侧课件像打语音电话一样自然对练';
       icon.textContent = '🎙️';
       break;
 
     case 'LISTENING':
       orb.classList.add('state-listening');
       indicator.textContent = '正在倾听您说话...';
-      subStatus.textContent = '请大声自然说话（支持中英双语），说完停顿 1 秒即可自动接话';
+      subStatus.textContent = '请大声说英语（不会可说中文），说完停顿 1 秒即可自动接话';
       icon.textContent = '👂';
       break;
 
     case 'THINKING':
       orb.classList.add('state-thinking');
       indicator.textContent = '正在思考回复中...';
-      subStatus.textContent = `${modeTag}，正在组织亲切双语回复...`;
+      subStatus.textContent = `${modeTag}，正在组织课标对练回复...`;
       icon.textContent = '✨';
       break;
 
     case 'SPEAKING':
       orb.classList.add('state-speaking');
       indicator.textContent = `${App.activeCourseware?.persona?.name || 'AI'} 正在说话...`;
-      subStatus.textContent = '注意听双语带读发音，听完即可直接接话（也可轻点声波球打断）';
+      subStatus.textContent = '注意听纯正发音，听完即可直接接话（也可轻点声波球打断）';
       icon.textContent = '🗣️';
       break;
   }
 }
 
-// 通话开关
+// 10. 通话开关
 function toggleCall() {
   if (App.isCalling) {
     endCall();
@@ -353,16 +515,15 @@ function toggleCall() {
 
 function startCall() {
   App.isCalling = true;
-  App.demoStepIndex = 0;
+  App.currentDialogueStep = 0;
   const btn = document.getElementById('callToggleBtn');
   btn.className = 'call-btn end-call';
   btn.querySelector('.btn-text').textContent = '挂断通话';
   btn.querySelector('.btn-icon').textContent = '📵';
 
   document.getElementById('muteBtn').disabled = false;
-
   const hasKey = Boolean(App.config.apiKey && App.config.apiKey.trim());
-  appendTranscript('system', `🟢 通话已接通！[模式: ${hasKey ? '大模型实时生成' : '课标内置对练模式(免Key)'}]`);
+  appendTranscript('system', `🟢 通话已接通！[模式: ${hasKey ? '大模型实时生成' : '课标严格考核模式(免Key)'}]`);
   resetConversation();
 }
 
@@ -374,7 +535,6 @@ function endCall() {
   btn.querySelector('.btn-icon').textContent = '📞';
 
   document.getElementById('muteBtn').disabled = true;
-
   stopListening();
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
@@ -386,18 +546,18 @@ function endCall() {
 
 function resetConversation() {
   App.conversationHistory = [];
-  App.demoStepIndex = 0;
+  App.currentDialogueStep = 0;
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
 
   const cw = App.activeCourseware;
   const greeting = cw?.initialGreeting || "Hello! I am Bingo. What is your name?";
 
-  // 添加自适应大模型提示词
   if (cw?.persona?.systemPrompt) {
     let prompt = cw.persona.systemPrompt;
-    prompt += `\n\n### CRITICAL TEACHING POLICY:
-1. When student speaks English: Respond in 100% natural, simple English (1-2 short sentences). Do NOT append Chinese translations. Keep the pure English environment!
-2. When student speaks Chinese, asks for meaning ('什么意思'/'听不懂'), or expresses hesitation: Immediately use friendly, warm Chinese to explain and comfort the child, then teach the target English sentence, and invite the child to repeat (e.g. '原来你想说...，用英文可以说：“...”，跟我来念一遍好吗？').`;
+    prompt += `\n\n### CRITICAL TEACHING RULES:
+1. STRICT PEDAGOGY: Do NOT accept random/irrelevant English words as correct answers! If the child answers an irrelevant word (e.g. You asked for name, but child says 'apple'), gently explain in Chinese: '哈哈，apple 是好吃的苹果，但现在 Bingo 问的是你的名字哦！试着对我说：My name is [名字]！'
+2. PURE ENGLISH when child speaks English: Keep conversation purely in English (1-2 sentences).
+3. CHINESE MENTOR when child speaks Chinese: Warmly explain in Chinese first, then teach the corresponding English sentence, and invite the child to repeat.`;
     App.conversationHistory.push({ role: 'system', content: prompt });
   }
 
@@ -406,24 +566,21 @@ function resetConversation() {
   }, 400);
 }
 
-// 语音合成 (TTS)：中英文无缝发音
+// 11. 语音合成 (TTS)：中英文无缝发音
 function speakAiResponse(fullText) {
   if (!('speechSynthesis' in window)) {
     alert('您的设备暂不支持语音朗读，请使用 Safari、Chrome 或 Edge 浏览器');
     return;
   }
 
-  stopListening(); // 说话前立刻关闭麦克风，杜绝扬声器尾音被自录！
+  stopListening();
   if (App.echoGuardTimer) clearTimeout(App.echoGuardTimer);
 
-  // 记录到历史
   App.conversationHistory.push({ role: 'assistant', content: fullText });
   appendTranscript('bot', `${App.activeCourseware?.persona?.name || 'AI'}: ${fullText}`);
 
   window.speechSynthesis.cancel();
   const utter = new SpeechSynthesisUtterance(fullText);
-  
-  // 智能识别语言：如果包含汉字，使用中文语言环境（iOS 和各平台中文语音读英文发音很自然且中英兼备）
   const hasChinese = /[\u4e00-\u9fa5]/.test(fullText);
   utter.lang = hasChinese ? 'zh-CN' : 'en-US';
   utter.rate = parseFloat(App.config.speechRate) || 0.85;
@@ -439,7 +596,7 @@ function speakAiResponse(fullText) {
   };
 
   utter.onend = () => {
-    // 关键防回声机制 (Echo Guard)：语音播完后缓冲 600ms，确保 iPad 扬声器完全停止后再开启麦克风！
+    // 防回声缓冲 600ms
     if (App.isCalling && !App.isMuted) {
       App.echoGuardTimer = setTimeout(() => {
         if (App.isCalling && !App.isMuted) {
@@ -452,8 +609,7 @@ function speakAiResponse(fullText) {
     }
   };
 
-  utter.onerror = (e) => {
-    console.warn('TTS 发音被中断:', e);
+  utter.onerror = () => {
     if (App.isCalling && !App.isMuted) {
       setTimeout(() => {
         if (App.isCalling && !App.isMuted) {
@@ -467,21 +623,15 @@ function speakAiResponse(fullText) {
   window.speechSynthesis.speak(utter);
 }
 
-// 语音识别 (STT)：支持中英双语混合识别
+// 12. 语音识别 (STT)：支持中英双语混合识别
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      const httpsUrl = `https://${location.hostname}:3000`;
-      appendTranscript('system', `⚠️ iPad / 手机端需通过 HTTPS 才能调用麦克风！请点击切换到安全通道：<a href="${httpsUrl}" style="color:#38bdf8;text-decoration:underline;">${httpsUrl}</a>（点击后选择“显示详细信息➔访问此网站”即可完全解锁语音对练！）`);
-    } else {
-      appendTranscript('system', '⚠️ 当前浏览器暂未开启麦克风或不支持语音录入，请确保在系统设置中允许浏览器访问麦克风。推荐使用 iPad Safari (HTTPS) 或 Chrome！');
-    }
+    appendTranscript('system', '⚠️ 当前浏览器暂未开启麦克风或不支持语音录入，请确保在系统设置中允许浏览器访问麦克风。推荐使用 iPad Safari (HTTPS) 或 Chrome！');
     return null;
   }
 
   const rec = new SpeechRecognition();
-  // 采用双语混合或用户设定语种（默认 zh-CN 能同时听懂中文和英语词汇）
   rec.lang = App.config.recognitionLang || 'zh-CN';
   rec.continuous = true;
   rec.interimResults = true;
@@ -496,7 +646,6 @@ function initSpeechRecognition() {
   };
 
   rec.onresult = (event) => {
-    // 如果处于思考或说话状态，忽略任何声音输入
     if (App.state === 'SPEAKING' || App.state === 'THINKING') return;
 
     let interim = '';
@@ -511,7 +660,6 @@ function initSpeechRecognition() {
     const currentText = (finalTranscript + ' ' + interim).trim();
     if (currentText) {
       setAppState('LISTENING');
-      // VAD 自动静音感应
       if (App.speechTimer) clearTimeout(App.speechTimer);
       const timeoutMs = (parseFloat(App.config.vadTimeout) || 1.2) * 1000;
       App.speechTimer = setTimeout(() => {
@@ -557,7 +705,7 @@ function stopListening() {
   }
 }
 
-// 智能回复决策中枢：有 Key 走大模型，无 Key 走课标体验对练
+// 13. 提交孩子所说的话并进行严格语义校验
 async function commitUserSpeech(spokenText) {
   if (!spokenText.trim()) return;
   stopListening();
@@ -568,16 +716,16 @@ async function commitUserSpeech(spokenText) {
 
   const hasKey = Boolean(App.config.apiKey && App.config.apiKey.trim());
 
-  // 1. 如果没有配置 API Key，启动课标内置体验对练模式（绝不重复报错英文！）
+  // 1. 严格模式下的离线对练引擎（精准校验语义是否切题）
   if (!hasKey) {
     setTimeout(() => {
-      const reply = generateDemoReply(spokenText.trim());
+      const reply = generateStrictPedagogyReply(spokenText.trim());
       speakAiResponse(reply);
     }, 700);
     return;
   }
 
-  // 2. 如果配置了 Key，调用大模型真实大脑
+  // 2. 有 Key 时请求大模型，带上严格教学指示
   try {
     const payload = {
       baseUrl: App.config.baseUrl,
@@ -601,61 +749,80 @@ async function commitUserSpeech(spokenText) {
     }
   } catch (err) {
     console.error('通信失败:', err);
-    // 网络降级为演示回复
-    const fallback = generateDemoReply(spokenText.trim());
+    const fallback = generateStrictPedagogyReply(spokenText.trim());
     speakAiResponse(fallback);
   }
 }
 
-// 内置免 Key 课标自适应双轨对练逻辑（孩子说英文纯英文接，孩子说中文用中文引导英文辅助）
-function generateDemoReply(input) {
-  const cw = App.activeCourseware;
+// 严格教学逻辑：不能乱说英文就算对！必须切题！
+function generateStrictPedagogyReply(input) {
   const lower = input.toLowerCase();
   const hasChinese = /[\u4e00-\u9fa5]/.test(input);
 
-  // 【分支一】：孩子说中文、或表示听不懂 / 求助
-  if (hasChinese) {
-    if (/叫|我是|名字|姓/.test(input)) {
-      return "原来是这样呀！很高兴认识你！如果用英文介绍自己，可以说：“My name is...” 后面加上你的名字。试着跟我读一次好吗？";
+  // 分步状态机：Step 0: 问名字 -> Step 1: 挥挥手 -> Step 2: 分享玩具
+  if (App.currentDialogueStep === 0) {
+    // 目标问：What is your name?
+    if (hasChinese) {
+      if (/叫|我是|名字/.test(input)) {
+        App.currentDialogueStep = 1;
+        return "原来是这样呀！很高兴认识你！如果用英文介绍自己可以说：“My name is...” 后面加上名字。试着跟我念：Nice to meet you! 很高兴认识你！我会挥挥手，你会挥手吗？Can you wave your hand?";
+      }
+      if (/不懂|什么意思|不会/.test(input)) {
+        return "别担心哦！Bingo 刚才在问你叫什么名字。试着告诉我：“My name is ...” 后面加上名字，试一次！";
+      }
+      return "听懂你的意思啦！不过 Bingo 刚才在问你的名字哦，试着对我说：“Hello, I'm ...” 试试看！";
     }
-    if (/不懂|意思|你说什么|听不清|慢点|不会/.test(input)) {
-      return "别担心哦！我刚才在问你的名字。你可以试着告诉我：“Hello, my name is...” 后面加上你的名字，大声试一次！";
+
+    // 孩子说英文：必须包含名字相关词（name, i am, i'm, hello+人名等），不能乱说别的不相干单词！
+    if (/name|i'm|i am|amy|mike|john|sarah|tom/i.test(lower)) {
+      App.currentDialogueStep = 1;
+      return "Nice to meet you! Look, I can wave my hand. Can you wave your hand?";
+    } else {
+      // 说了不切题的英文单词（比如乱说 apple, cat, dog 等）
+      return `Haha, that's fun! 哈哈，很有趣，但现在 Bingo 问的是你的名字“What is your name”哦！试着回答：“My name is...” 后面加上你的名字！`;
     }
-    if (/手|胳膊|眼睛|耳朵|嘴巴/.test(input)) {
-      return "身体部位用英文说很有趣哦！手是 hand，耳朵是 ear。摸摸手可以说：“Touch your hand.” 跟我读一遍：hand！";
-    }
-    if (/好|可以|行|对|会/.test(input)) {
-      return "真棒！赞同对方的时候，用英文可以说：“OK!” 或者 “Great!”。跟我大声说一遍：OK！";
-    }
-    if (/爸爸|妈妈|哥哥|弟弟|姐姐|妹妹|家人/.test(input)) {
-      return "好温馨的家庭呀！用英文介绍爸爸可以说是：“This is my father.” 妈妈是 mother。试着跟我念：father！";
-    }
-    // 通用中文引导
-    return "听懂你的意思啦！那试着用英文跟我打个招呼吧，跟着我大声念：“Hello Bingo!”";
   }
 
-  // 【分支二】：孩子说纯英文（保持 100% 纯英文沉浸交流，绝不插入中文！）
-  if (/name|i'm|i am|hello|hi|bingo/i.test(lower)) {
-    return "Nice to meet you! Look, I can wave my hand. Can you wave your hand?";
-  }
-  if (/yes|can|hand|wave|look|arm/i.test(lower)) {
-    return "Super! We are good friends now. Let's share our toys, OK?";
-  }
-  if (/share|ok|good|friend|toy|great/i.test(lower)) {
-    return "Bingo! You did an amazing job today! You got a star! ⭐";
-  }
-  if (/father|mother|brother|sister|family/i.test(lower)) {
-    return "Your family looks so happy and sweet! Do you love your family?";
-  }
-  if (/love|nice|happy/i.test(lower)) {
-    return "Wonderful! Loving family and friends is the best thing. You are awesome! ⭐";
+  if (App.currentDialogueStep === 1) {
+    // 目标问：Can you wave your hand?
+    if (hasChinese) {
+      if (/会|可以|手|好/.test(input)) {
+        App.currentDialogueStep = 2;
+        return "真棒！赞同对方的时候，用英文可以说：“Yes, I can wave my hand.” 跟我大声说：hand！现在我们是好朋友啦，Let's share our toys! 一起分享玩具好吗？";
+      }
+      return "挥挥手在英语里叫 wave your hand 哦！试着用英文对我说：“Yes, I can!” 试一次！";
+    }
+
+    if (/yes|can|hand|wave/i.test(lower)) {
+      App.currentDialogueStep = 2;
+      return "Super! We are good friends now. Let's share our toys, OK?";
+    } else {
+      return "Almost! 差一点点哦！Bingo 问的是你会不会挥挥手“Can you wave your hand?”，试着大声说：“Yes, I can wave my hand!”";
+    }
   }
 
-  // 纯英文通用接话
-  return "Good job! You speak English so nicely! Let's keep talking!";
+  if (App.currentDialogueStep === 2) {
+    // 目标问：Let's share our toys, OK?
+    if (hasChinese) {
+      if (/好|可以|行|分享/.test(input)) {
+        App.currentDialogueStep = 0; // 通关
+        return "Bingo! 恭喜你！懂得分享的孩子最棒啦！你完成了今天的课文对练，奖励你一颗大金星！⭐ 接下来可以点击左侧的【测验考核打分】做小测验哦！";
+      }
+      return "分享玩具可以说：“Let's share!” 跟我大声读一次：share！";
+    }
+
+    if (/ok|share|good|friend|yes/i.test(lower)) {
+      App.currentDialogueStep = 0;
+      return "Bingo! You did an amazing job today! You got a golden star! ⭐ Now click on the Quiz tab on the left to test your score!";
+    } else {
+      return "Good try! 试着大声对我说：“OK! We share.”（好的！我们一起分享。）";
+    }
+  }
+
+  return "Good try! Let's keep talking!";
 }
 
-// 字幕卡片
+// 14. 页面日志
 function appendTranscript(type, text) {
   const box = document.getElementById('transcriptBox');
   const line = document.createElement('div');
@@ -665,8 +832,33 @@ function appendTranscript(type, text) {
   box.scrollTop = box.scrollHeight;
 }
 
-// 事件绑定
+// 15. UI 事件监听绑定
 function bindUIEvents() {
+  // 左侧环节 Tab 切换 (课本内容 / 测验打分 / 错题儿歌)
+  const tabs = document.querySelectorAll('.stage-tab-btn');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const targetId = tab.dataset.tab;
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      const activePane = document.getElementById(targetId);
+      if (activePane) activePane.classList.add('active');
+    });
+  });
+
+  // 清空错题本
+  const clearBtn = document.getElementById('clearMistakesBtn');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      App.mistakes = [];
+      saveMistakes();
+      renderMistakesBoard();
+    });
+  }
+
+  // 通话开关
   document.getElementById('callToggleBtn').addEventListener('click', toggleCall);
   document.getElementById('orbContainer').addEventListener('click', () => {
     if (!App.isCalling) {
@@ -749,15 +941,7 @@ function bindUIEvents() {
   document.getElementById('testVoiceBtn').addEventListener('click', () => {
     const selectedVoiceURI = document.getElementById('cfgVoiceSelect').value;
     const rate = parseFloat(document.getElementById('cfgSpeechRate').value) || 0.85;
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance("Hello! 你好呀！我是你的英语伴学伙伴 Bingo！Nice to meet you!");
-      u.lang = 'zh-CN';
-      u.rate = rate;
-      const v = window.speechSynthesis.getVoices().find(x => x.voiceURI === selectedVoiceURI);
-      if (v) u.voice = v;
-      window.speechSynthesis.speak(u);
-    }
+    playSingleVoice("Hello! 你好呀！我是你的伴学伙伴 Bingo！Nice to meet you!", rate);
   });
 
   document.getElementById('saveSettingsBtn').addEventListener('click', () => {
@@ -781,7 +965,7 @@ function bindUIEvents() {
     modal.classList.remove('active');
     
     const hasKey = Boolean(App.config.apiKey);
-    appendTranscript('system', `✅ 设置保存成功！当前模式: ${hasKey ? '大模型实时生成' : '课标内置对练模式(免Key)'}`);
+    appendTranscript('system', `✅ 设置保存成功！当前模式: ${hasKey ? '大模型实时生成' : '课标严格考核模式(免Key)'}`);
     
     if (App.isCalling) {
       resetConversation();

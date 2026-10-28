@@ -45,36 +45,79 @@
           </div>
         </div>
 
+        <!-- 教学闭环环节导航 -->
+        <div class="stage-nav-tabs">
+          <button class="stage-tab-btn active" data-tab="tab-learn">📖 课本内容与生词</button>
+          <button class="stage-tab-btn" data-tab="tab-quiz">🎯 测验考核打分</button>
+          <button class="stage-tab-btn" data-tab="tab-review">🌟 错题复习 & 7天AI儿歌</button>
+        </div>
+
         <div class="cw-scroll-area">
-          <!-- 1. 课本核心情景对话 (Let's talk) -->
-          <div class="cw-section">
-            <div class="cw-section-title">
-              <span>🎭 课本核心情境对话 (Let's talk)</span>
-              <small>轻点对话泡泡即可跟读示范 🔊</small>
+          <!-- 环节 1：课文对话与生词库 -->
+          <div id="tab-learn" class="tab-pane active">
+            <!-- 1. 课本核心情景对话 (Let's talk) -->
+            <div class="cw-section">
+              <div class="cw-section-title">
+                <span>🎭 课本核心情境对话 (Let's talk)</span>
+                <small>轻点对话泡泡即可跟读示范 🔊</small>
+              </div>
+              <div class="dialogue-list" id="dialogueList"></div>
             </div>
-            <div class="dialogue-list" id="dialogueList">
-              <!-- 动态填充课本对话 -->
+
+            <!-- 2. 核心图文生词池 (Word Bank) -->
+            <div class="cw-section" style="margin-top: 18px;">
+              <div class="cw-section-title">
+                <span>🔤 单元重点图文生词 (Word Bank)</span>
+                <small>点击卡片听标准音标发音 🔊</small>
+              </div>
+              <div class="vocab-cards-grid" id="vocabCardsGrid"></div>
+            </div>
+
+            <!-- 3. 开口表达锦囊 (Quick Prompts) -->
+            <div class="cw-section" style="margin-top: 18px;">
+              <div class="cw-section-title">
+                <span>💡 开口表达小锦囊（试着对 AI 说）：</span>
+              </div>
+              <div class="prompts-grid" id="promptsGrid"></div>
             </div>
           </div>
 
-          <!-- 2. 核心图文生词池 (Word Bank) -->
-          <div class="cw-section">
-            <div class="cw-section-title">
-              <span>🔤 单元重点图文生词 (Word Bank)</span>
-              <small>点击卡片听标准音标发音 🔊</small>
-            </div>
-            <div class="vocab-cards-grid" id="vocabCardsGrid">
-              <!-- 动态填充生词卡 -->
+          <!-- 环节 2：测验考核打分 (Quiz & Score) -->
+          <div id="tab-quiz" class="tab-pane">
+            <div class="quiz-container">
+              <div class="quiz-score-header">
+                <h3>🏆 单元达标测验考核</h3>
+                <div class="score-display">当前得分：<span id="quizScoreText">0</span> / 100</div>
+              </div>
+              <div id="quizQuestionBox" class="quiz-card-box">
+                <!-- 动态填充考题 -->
+              </div>
             </div>
           </div>
 
-          <!-- 3. 开口表达锦囊 (Quick Prompts) -->
-          <div class="cw-section">
-            <div class="cw-section-title">
-              <span>💡 开口表达小锦囊（试着对 AI 说）：</span>
+          <!-- 环节 3：次日错题强化 & 7天AI儿歌创编 -->
+          <div id="tab-review" class="tab-pane">
+            <!-- 错题强化区 -->
+            <div class="review-section">
+              <div class="cw-section-title">
+                <span>🔄 错题次数较多词句（次日优先复习）</span>
+                <button id="clearMistakesBtn" class="pill-mini-btn">清空错题</button>
+              </div>
+              <div id="mistakesList" class="mistakes-list">
+                <div class="empty-tip">暂无错题记录，孩子学得很棒哦！⭐</div>
+              </div>
             </div>
-            <div class="prompts-grid" id="promptsGrid">
-              <!-- 动态填充提示词 -->
+
+            <!-- 7天词汇创编儿歌区 -->
+            <div class="chant-maker-section" style="margin-top: 24px;">
+              <div class="cw-section-title">
+                <span>🎶 7天词汇量 AI 趣味儿歌创编 (记忆加深)</span>
+                <button id="playChantBtn" class="pill-mini-btn highlight">朗诵儿歌 🔊</button>
+              </div>
+              <div class="chant-display-card" id="chantDisplayCard">
+                <h4 id="chantTitle">Friends Share and Smile</h4>
+                <div class="chant-lyrics" id="chantLyrics"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -95,7 +138,7 @@
 
         <!-- 实时通话状态 -->
         <div class="status-indicator" id="statusIndicator">点击下方按钮开始语音通话</div>
-        <div class="sub-status" id="subStatus">双手免提 · 看着课件像打语音电话一样自然对练</div>
+        <div class="sub-status" id="subStatus">双手免提 · 看着左侧课件像打语音电话一样自然对练</div>
 
         <!-- 实时对讲字幕流 -->
         <div class="transcript-card" id="transcriptCard">
@@ -141,7 +184,6 @@
       </div>
 
       <div class="modal-body">
-        <!-- 1. 模型大脑 -->
         <div class="config-section">
           <h4>🤖 语言大模型大脑 (LLM Provider)</h4>
           <div class="form-group">
@@ -173,7 +215,6 @@
           </div>
         </div>
 
-        <!-- 2. 语音合成与声音控制 -->
         <div class="config-section">
           <h4>🗣️ 语音与声音控制 (Voice & Audio)</h4>
           <div class="form-group">
@@ -193,7 +234,6 @@
           </div>
         </div>
 
-        <!-- 3. 教学策略与语言自适应 -->
         <div class="config-section">
           <h4>🎓 教学模式与语言自适应</h4>
           <div class="form-group">
@@ -225,6 +265,7 @@
     </div>
   </div>
 
+  <script src="courseware-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
