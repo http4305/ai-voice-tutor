@@ -246,7 +246,41 @@ function renderCoursewareBoard(cw) {
     });
   }
 
-  // 2. 单元重点图文生词 (Word Bank)
+  // 2. 🔤 自然拼读法与核心音标 (Let's spell)
+  const pCard = document.getElementById('phonicsFocusCard');
+  if (pCard) {
+    const pf = cw.phonicsFocus;
+    if (pf) {
+      pCard.style.display = 'flex';
+      let exChips = '';
+      if (pf.wordExamples) {
+        pf.wordExamples.forEach(ex => {
+          exChips += `
+            <div class="phonics-example-chip" onclick="playSingleVoice('${ex.word}')">
+              <span class="phonics-chip-word">${ex.word}</span>
+              <span class="phonics-chip-sound">${ex.phonetic}</span>
+            </div>
+          `;
+        });
+      }
+
+      pCard.innerHTML = `
+        <div class="phonics-header">
+          <span class="phonics-title-text">${pf.ruleTitle}</span>
+          <div class="phonics-big-sound-badge" onclick="playSingleVoice('${pf.sound}')" title="点击听大音标发音">
+            <span>${pf.sound}</span>
+            <small style="font-size:12px;">🔊</small>
+          </div>
+        </div>
+        <div class="phonics-mouth-tip">${pf.mouthTip}</div>
+        <div class="phonics-examples-row">${exChips}</div>
+      `;
+    } else {
+      pCard.style.display = 'none';
+    }
+  }
+
+  // 3. 单元重点图文生词 (Word Bank) 与超清晰大音标
   const vGrid = document.getElementById('vocabCardsGrid');
   if (vGrid) {
     vGrid.innerHTML = '';
@@ -254,13 +288,16 @@ function renderCoursewareBoard(cw) {
     vocab.forEach(v => {
       const card = document.createElement('div');
       card.className = 'vocab-card';
+      const blendHtml = v.blend ? `<span class="vocab-blend-tag">拼读: ${v.blend}</span>` : '';
       card.innerHTML = `
         <div class="vocab-emoji">${v.emoji || '📝'}</div>
         <div class="vocab-word">${v.word}</div>
-        <div class="vocab-phonetic">${v.phonetic || ''}</div>
+        <div class="vocab-phonetic-badge">${v.phonetic || ''}</div>
+        ${blendHtml}
         <div class="vocab-zh">${v.zh}</div>
       `;
       card.addEventListener('click', () => {
+        // 先慢速读音标/单词，再读例句
         playSingleVoice(v.word + (v.sent ? `. ${v.sent}` : ''));
       });
       vGrid.appendChild(card);
