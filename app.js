@@ -329,15 +329,17 @@ function renderCoursewareBoard(cw) {
   renderChantBoard(cw);
 }
 
-// 4. 单元考核小测与打分系统 (Quiz & Scoring)
+// 4. 单元考核小测与分阶打分系统 (Part 1 单词考核 50分 + Part 2 短句考核 50分)
 function renderQuizBoard(cw) {
   const box = document.getElementById('quizQuestionBox');
   const scoreEl = document.getElementById('quizScoreText');
   if (!box) return;
 
-  const quizList = cw.unitQuiz || [];
-  if (quizList.length === 0) {
-    box.innerHTML = '<div class="empty-tip">本单元暂未配置小测，可在对话中直接考核！</div>';
+  const wordQuiz = cw.wordQuiz || [];
+  const sentenceQuiz = cw.sentenceQuiz || [];
+  
+  if (wordQuiz.length === 0 && sentenceQuiz.length === 0) {
+    box.innerHTML = '<div class="empty-tip">本单元暂未配置分阶考核题！</div>';
     scoreEl.textContent = '100';
     return;
   }
@@ -345,49 +347,78 @@ function renderQuizBoard(cw) {
   box.innerHTML = '';
   App.quizScore = 0;
   scoreEl.textContent = '0';
-  let answeredCount = 0;
-  const eachScore = Math.floor(100 / quizList.length);
+  let totalPoints = 0;
 
-  quizList.forEach((qObj, qIdx) => {
-    const card = document.createElement('div');
-    card.className = 'quiz-item-card';
-    card.innerHTML = `
-      <div class="quiz-question-title">第 ${qIdx + 1} 题：${qObj.q}</div>
-      <div class="quiz-opts-list" id="opts_list_${qIdx}"></div>
-      <div class="quiz-feedback-text" id="fb_text_${qIdx}" style="font-size:12px;margin-top:4px;"></div>
-    `;
+  // 1. 渲染【Part 1: 核心单词考核 (50分)】
+  if (wordQuiz.length > 0) {
+    const part1Title = document.createElement('div');
+    part1Title.className = 'quiz-part-title';
+    part1Title.innerHTML = `<span>🔤 第一阶段：核心单词听音与认读考核 (共 50 分)</span>`;
+    box.appendChild(part1Title);
 
-    const optContainer = card.querySelector(`#opts_list_${qIdx}`);
-    qObj.options.forEach((optStr, optIdx) => {
-      const btn = document.createElement('button');
-      btn.className = 'quiz-choice-btn';
-      btn.textContent = `${String.fromCharCode(65 + optIdx)}. ${optStr}`;
-      btn.addEventListener('click', () => {
-        if (card.dataset.answered) return;
-        card.dataset.answered = 'true';
-        answeredCount++;
-
-        if (optIdx === qObj.answer) {
-          btn.classList.add('correct');
-          App.quizScore += eachScore;
-          if (answeredCount === quizList.length && App.quizScore > 90) App.quizScore = 100;
-          scoreEl.textContent = App.quizScore;
-          card.querySelector(`#fb_text_${qIdx}`).innerHTML = `<span style="color:#6ee7b7;">✔ 答对啦！(+${eachScore}分) ${qObj.explain}</span>`;
-          playSingleVoice("Bingo! That is correct!");
-        } else {
-          btn.classList.add('wrong');
-          scoreEl.textContent = App.quizScore;
-          card.querySelector(`#fb_text_${qIdx}`).innerHTML = `<span style="color:#fca5a5;">❌ 选错啦！正确答案是: ${qObj.options[qObj.answer]} (${qObj.explain})</span>`;
-          playSingleVoice("Try again next time!");
-          // 自动记录错题
-          addMistake(qObj.q, qObj.options[qObj.answer], optStr, qObj.explain);
-        }
-      });
-      optContainer.appendChild(btn);
+    const eachWordScore = Math.floor(50 / wordQuiz.length);
+    wordQuiz.forEach((qObj, idx) => {
+      box.appendChild(createQuestionCard(qObj, idx + 1, eachWordScore, "word", () => {
+        scoreEl.textContent = App.quizScore;
+      }));
     });
+  }
 
-    box.appendChild(card);
+  // 2. 渲染【Part 2: 重点短句情景考核 (50分)】
+  if (sentenceQuiz.length > 0) {
+    const part2Title = document.createElement('div');
+    part2Title.className = 'quiz-part-title';
+    part2Title.style.marginTop = '20px';
+    part2Title.innerHTML = `<span>💬 第二阶段：核心短句情境交际考核 (共 50 分)</span>`;
+    box.appendChild(part2Title);
+
+    const eachSentScore = Math.floor(50 / sentenceQuiz.length);
+    sentenceQuiz.forEach((qObj, idx) => {
+      box.appendChild(createQuestionCard(qObj, idx + 1, eachSentScore, "sentence", () => {
+        scoreEl.textContent = App.quizScore;
+      }));
+    });
+  }
+}
+
+function createQuestionCard(qObj, num, scoreValue, category, onScored) {
+  const card = document.createElement('div');
+  card.className = 'quiz-item-card';
+  card.innerHTML = `
+    <div class="quiz-question-title">第 ${num} 题 (${scoreValue}分)：${qObj.q}</div>
+    <div class="quiz-opts-list"></div>
+    <div class="quiz-feedback-text" style="font-size:12px;margin-top:4px;"></div>
+  `;
+
+  const optContainer = card.querySelector('.quiz-opts-list');
+  qObj.options.forEach((optStr, optIdx) => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-choice-btn';
+    btn.textContent = `${String.fromCharCode(65 + optIdx)}. ${optStr}`;
+    btn.addEventListener('click', () => {
+      if (card.dataset.answered) return;
+      card.dataset.answered = 'true';
+
+      if (optIdx === qObj.answer) {
+        btn.classList.add('correct');
+        App.quizScore += scoreValue;
+        if (App.quizScore > 100) App.quizScore = 100;
+        onScored();
+        card.querySelector('.quiz-feedback-text').innerHTML = `<span style="color:#6ee7b7;">✔ 答对啦！(+${scoreValue}分) ${qObj.explain}</span>`;
+        playSingleVoice("Bingo! Correct!");
+      } else {
+        btn.classList.add('wrong');
+        onScored();
+        card.querySelector('.quiz-feedback-text').innerHTML = `<span style="color:#fca5a5;">❌ 答错啦！正确答案是: ${qObj.options[qObj.answer]} (${qObj.explain})</span>`;
+        playSingleVoice("Oh no! Let's review!");
+        // 自动将错误项存入错题本
+        addMistake(qObj.q, qObj.options[qObj.answer], optStr, qObj.explain);
+      }
+    });
+    optContainer.appendChild(btn);
   });
+
+  return card;
 }
 
 // 5. 渲染错题复习本

@@ -124,30 +124,57 @@ window.BUILTIN_COURSEWARES = [
       { text: "Yes, I can wave my hand.", zh: "是的，我会挥手。" },
       { text: "Let's share our toys!", zh: "我们一起分享玩具吧！" }
     ],
-    unitQuiz: [
+    // 单元达标考核（分阶：Part 1 单词考核 50分 + Part 2 短句考核 50分）
+    wordQuiz: [
       {
-        q: "当你新认识一个朋友，想表达“很高兴认识你”，应该说：",
-        options: ["Goodbye!", "Nice to meet you.", "Open your mouth."],
-        answer: 1,
-        explain: "Nice to meet you! 意思是很高兴认识你。"
-      },
-      {
-        q: "身体部位：听老师说 'Wave your hand!'，你应该做哪个动作？",
-        options: ["摸摸耳朵", "闭上眼睛", "挥挥你的手"],
-        answer: 2,
-        explain: "hand 是手，Wave your hand 是挥挥手。"
-      },
-      {
-        q: "想向新同学介绍自己的名字叫明明，正确的表达是：",
-        options: ["My name is Mingming.", "I am friend.", "Touch your ear."],
+        q: "看图识词：看着图标 ✋ 和中文“手”，对应的正确英文是：",
+        options: ["hand", "ear", "mouth"],
         answer: 0,
-        explain: "My name is... 意思是我的名字叫..."
+        explain: "hand 意思是手；ear 是耳朵；mouth 是嘴巴。"
       },
       {
-        q: "我们一起玩玩具，想要表达“分享”，用哪个英文单词？",
-        options: ["share", "listen", "arm"],
+        q: "单词辨析：“名字”的正确英文拼写是哪一个？",
+        options: ["nice", "name", "arm"],
+        answer: 1,
+        explain: "name 意思是名字；nice 是友好的；arm 是胳膊。"
+      },
+      {
+        q: "词义理解：单词“friend 🧑‍🤝‍🧑”的中文含义是：",
+        options: ["朋友", "身体", "学校"],
+        answer: 0,
+        explain: "friend 意思是朋友。"
+      },
+      {
+        q: "听音选词：发音为 /ʃeə(r)/，表示“互相分享”，对应的单词是：",
+        options: ["share", "smile", "eye"],
         answer: 0,
         explain: "share 意思是分享。"
+      }
+    ],
+    sentenceQuiz: [
+      {
+        q: "情景表达：向新同学自我介绍“我的名字叫迈克”，应该说：",
+        options: ["My name is Mike.", "I am friend.", "Touch your ear."],
+        answer: 0,
+        explain: "My name is... 意思是我的名字是..."
+      },
+      {
+        q: "动作指令：听到老师说 “Touch your ear!”，你应该做哪个动作？",
+        options: ["摸摸你的耳朵", "闭上你的眼睛", "挥挥你的手臂"],
+        answer: 0,
+        explain: "Touch your ear 是摸摸你的耳朵。"
+      },
+      {
+        q: "礼貌应答：新朋友微笑着对你说 “Nice to meet you!”，你应该回答：",
+        options: ["Goodbye!", "Nice to meet you, too!", "Open your mouth."],
+        answer: 1,
+        explain: "Nice to meet you, too! 意思是“我也很高兴认识你！”"
+      },
+      {
+        q: "短句交际：想邀请新伙伴一起玩玩具并表达“我们一起分享吧！”，可以说：",
+        options: ["Let's share!", "Wave your hand.", "Close eyes."],
+        answer: 0,
+        explain: "Let's share! 意思是“我们一起分享吧！”"
       }
     ],
     sevenDayChant: {
@@ -245,18 +272,50 @@ window.BUILTIN_COURSEWARES = [
       { text: "This is my brother.", zh: "这是我的哥哥/弟弟。" },
       { text: "I love my family!", zh: "我爱我的家！" }
     ],
-    unitQuiz: [
+    wordQuiz: [
       {
-        q: "向朋友介绍自己的妈妈，应该说：",
-        options: ["He is my father.", "She is my mother.", "This is a cat."],
-        answer: 1,
-        explain: "She is my mother. 意思为她是我妈妈。"
+        q: "看图识词：看到图标 👨 爸爸，对应的正确英文是：",
+        options: ["father", "sister", "brother"],
+        answer: 0,
+        explain: "father 是父亲/爸爸；sister 是姐妹；brother 是兄弟。"
       },
       {
-        q: "brother 的中文含义是：",
+        q: "词义辨析：单词“mother 👩”的中文含义是：",
+        options: ["妈妈/母亲", "奶奶", "老师"],
+        answer: 0,
+        explain: "mother 表示母亲/妈妈。"
+      },
+      {
+        q: "单词理解：“brother 👦”的中文意思是：",
         options: ["爸爸", "姐姐", "哥哥/弟弟"],
         answer: 2,
         explain: "brother 表示兄或弟。"
+      },
+      {
+        q: "单词拼写：“家庭、家人 🏡”的英文单词是：",
+        options: ["friend", "family", "name"],
+        answer: 1,
+        explain: "family 意思是家庭、家人。"
+      }
+    ],
+    sentenceQuiz: [
+      {
+        q: "情景表达：拿出家庭照片向朋友介绍“她是我妈妈”，应该说：",
+        options: ["He is my father.", "She is my mother.", "This is a cat."],
+        answer: 1,
+        explain: "女性用 She，She is my mother. 意思为她是我妈妈。"
+      },
+      {
+        q: "句型运用：向同学介绍“他是我爸爸”，应该说：",
+        options: ["He is my father.", "She is my sister.", "I am friend."],
+        answer: 0,
+        explain: "男性用 He，He is my father. 他是我爸爸。"
+      },
+      {
+        q: "真情表达：想表达“我爱我的家庭！”，正确的英文是：",
+        options: ["I love my family!", "Touch your ear.", "Goodbye father."],
+        answer: 0,
+        explain: "I love my family! 表示我爱我的家！"
       }
     ],
     sevenDayChant: {
