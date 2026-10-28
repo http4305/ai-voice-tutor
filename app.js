@@ -822,72 +822,72 @@ async function commitUserSpeech(spokenText) {
   }
 }
 
-// 严格教学逻辑：不能乱说英文就算对！必须切题！
+// 智能双轨自适应对话引擎：自然接住孩子的话，绝不死循环卡死在某一句！
 function generateStrictPedagogyReply(input) {
   const lower = input.toLowerCase();
   const hasChinese = /[\u4e00-\u9fa5]/.test(input);
 
-  // 分步状态机：Step 0: 问名字 -> Step 1: 挥挥手 -> Step 2: 分享玩具
-  if (App.currentDialogueStep === 0) {
-    // 目标问：What is your name?
-    if (hasChinese) {
-      if (/叫|我是|名字/.test(input)) {
-        App.currentDialogueStep = 1;
-        return "原来是这样呀！很高兴认识你！如果用英文介绍自己可以说：“My name is...” 后面加上名字。试着跟我念：Nice to meet you! 很高兴认识你！我会挥挥手，你会挥手吗？Can you wave your hand?";
-      }
-      if (/不懂|什么意思|不会/.test(input)) {
-        return "别担心哦！Bingo 刚才在问你叫什么名字。试着告诉我：“My name is ...” 后面加上名字，试一次！";
-      }
-      return "听懂你的意思啦！不过 Bingo 刚才在问你的名字哦，试着对我说：“Hello, I'm ...” 试试看！";
+  // 1. 优先识别孩子是否在聊生活日常（幽默接住并自然推进，绝不重复卡死！）
+  if (hasChinese) {
+    if (/睡|床|困|累/.test(input)) {
+      App.currentDialogueStep = (App.currentDialogueStep + 1) % 3;
+      return "哈哈，睡觉最舒服啦！‘睡觉’在英语里是 sleep！Bingo 睡饱了现在精神满满哦。看，我会挥挥手：I can wave my hand. 你会挥手吗？Can you wave your hand?";
     }
-
-    // 孩子说英文：必须包含名字相关词（name, i am, i'm, hello+人名等），不能乱说别的不相干单词！
-    if (/name|i'm|i am|amy|mike|john|sarah|tom/i.test(lower)) {
+    if (/吃|饿|饭|果|零食|糖|肉/.test(input)) {
+      App.currentDialogueStep = (App.currentDialogueStep + 1) % 3;
+      return "哇，听起来好香呀！‘吃好吃的’可以用 eat！小狗也喜欢吃骨头~ 我们可以成为好朋友一起分享食物吗？Let's share!";
+    }
+    if (/玩|游戏|开心|高兴|乐/.test(input)) {
+      App.currentDialogueStep = (App.currentDialogueStep + 1) % 3;
+      return "太棒啦！‘玩游戏’是 play games！跟你聊天真开心。我们是好朋友啦：We are good friends! 试着跟我说：friend！";
+    }
+    if (/冷|热|度|天气|太阳|雨/.test(input)) {
+      App.currentDialogueStep = (App.currentDialogueStep + 1) % 3;
+      return "注意天气保暖哦！Bingo 喜欢温暖的阳光。我们来握握手做个朋友吧，试着对我说一句：“Nice to meet you!” 很高兴认识你！";
+    }
+    if (/叫|我是|名字|姓/.test(input)) {
       App.currentDialogueStep = 1;
-      return "Nice to meet you! Look, I can wave my hand. Can you wave your hand?";
-    } else {
-      // 说了不切题的英文单词（比如乱说 apple, cat, dog 等）
-      return `Haha, that's fun! 哈哈，很有趣，但现在 Bingo 问的是你的名字“What is your name”哦！试着回答：“My name is...” 后面加上你的名字！`;
+      return "原来是这样呀！很高兴认识你！如果用英文介绍自己可以说：“My name is...” 后面加上名字。试着跟我念：Nice to meet you! 看，我会挥手哦，你会挥手吗？Can you wave your hand?";
     }
-  }
-
-  if (App.currentDialogueStep === 1) {
-    // 目标问：Can you wave your hand?
-    if (hasChinese) {
-      if (/会|可以|手|好/.test(input)) {
-        App.currentDialogueStep = 2;
-        return "真棒！赞同对方的时候，用英文可以说：“Yes, I can wave my hand.” 跟我大声说：hand！现在我们是好朋友啦，Let's share our toys! 一起分享玩具好吗？";
-      }
-      return "挥挥手在英语里叫 wave your hand 哦！试着用英文对我说：“Yes, I can!” 试一次！";
+    if (/不懂|什么意思|不会|听不清|慢点/.test(input)) {
+      return "别担心哦！英语一点都不难。你可以先跟着我试着大声说最简单的一句：“Hello Bingo!” 试一次看看！";
     }
-
-    if (/yes|can|hand|wave/i.test(lower)) {
+    if (/会|可以|手|好|行|对/.test(input)) {
       App.currentDialogueStep = 2;
-      return "Super! We are good friends now. Let's share our toys, OK?";
-    } else {
-      return "Almost! 差一点点哦！Bingo 问的是你会不会挥挥手“Can you wave your hand?”，试着大声说：“Yes, I can wave my hand!”";
+      return "真棒！赞同对方的时候，用英文可以说：“Yes, I can wave my hand.” 跟我大声说：hand！现在我们是好朋友啦，Let's share our toys! 一起分享玩具好吗？";
     }
-  }
-
-  if (App.currentDialogueStep === 2) {
-    // 目标问：Let's share our toys, OK?
-    if (hasChinese) {
-      if (/好|可以|行|分享/.test(input)) {
-        App.currentDialogueStep = 0; // 通关
-        return "Bingo! 恭喜你！懂得分享的孩子最棒啦！你完成了今天的课文对练，奖励你一颗大金星！⭐ 接下来可以点击左侧的【测验考核打分】做小测验哦！";
-      }
-      return "分享玩具可以说：“Let's share!” 跟我大声读一次：share！";
-    }
-
-    if (/ok|share|good|friend|yes/i.test(lower)) {
+    if (/分享|ok|行/.test(input)) {
       App.currentDialogueStep = 0;
-      return "Bingo! You did an amazing job today! You got a golden star! ⭐ Now click on the Quiz tab on the left to test your score!";
-    } else {
-      return "Good try! 试着大声对我说：“OK! We share.”（好的！我们一起分享。）";
+      return "Bingo! 恭喜你！懂得分享的孩子最棒啦！你完成了今天的课文对练，奖励你一颗大金星！⭐ 接下来可以点击左侧的【测验考核打分】做小测验哦！";
     }
+
+    // 通用生活闲聊：不重复！每次根据当前步数向前推进！
+    App.currentDialogueStep = (App.currentDialogueStep + 1) % 3;
+    const variedChineseReplies = [
+      "哈哈，听懂你的意思啦，真有趣！那我们一起学一句简单地道的小短句吧，跟我大声说：“Nice to meet you!”",
+      "你说得真清楚！如果用英文跟好朋友打招呼，可以说：“Hello, my friend!” 试着对我说一次好吗？",
+      "好棒呀！Bingo 越来越喜欢和你聊天了。我们一起挥挥手：“Wave your hand!”，来跟我动动小手！"
+    ];
+    return variedChineseReplies[Math.floor(Math.random() * variedChineseReplies.length)];
   }
 
-  return "Good try! Let's keep talking!";
+  // 2. 孩子说英文
+  if (/name|i'm|i am|amy|mike|john|sarah|tom|hello|hi|bingo/i.test(lower)) {
+    App.currentDialogueStep = 1;
+    return "Nice to meet you! Look, I can wave my hand. Can you wave your hand?";
+  }
+  if (/yes|can|hand|wave|look|arm/i.test(lower)) {
+    App.currentDialogueStep = 2;
+    return "Super! We are good friends now. Let's share our toys, OK?";
+  }
+  if (/share|ok|good|friend|toy|great/i.test(lower)) {
+    App.currentDialogueStep = 0;
+    return "Bingo! You did an amazing job today! You got a golden star! ⭐ Now click on the Quiz tab on the left to test your score!";
+  }
+
+  // 纯英文通用应答并推进
+  App.currentDialogueStep = (App.currentDialogueStep + 1) % 3;
+  return "Good try! You speak English so nicely! Let's say: 'We are good friends!'";
 }
 
 // 14. 页面日志
